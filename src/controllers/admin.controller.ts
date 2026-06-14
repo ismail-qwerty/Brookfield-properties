@@ -118,4 +118,46 @@ export class AdminController {
       'Properties assigned successfully. User can now execute tasks.'
     );
   });
+
+  /**
+   * @route   GET /api/v1/admin/memberships
+   * @desc    Get all membership levels
+   * @access  Admin
+   */
+  static getMemberships = asyncHandler(async (req: Request, res: Response) => {
+    const result = await AdminService.getMemberships();
+    return ResponseUtil.success(res, result);
+  });
+
+  /**
+   * @route   POST /api/v1/admin/memberships
+   * @desc    Create new membership level
+   * @access  Admin
+   */
+  static createMembership = asyncHandler(async (req: Request, res: Response) => {
+    const result = await AdminService.createMembership(req.body);
+    return ResponseUtil.success(res, result, 'Membership tier created successfully');
+  });
+
+  /**
+   * @route   PUT /api/v1/admin/memberships/:id
+   * @desc    Update membership level
+   * @access  Admin
+   */
+  static updateMembership = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await AdminService.updateMembership(id, req.body);
+    return ResponseUtil.success(res, result, 'Membership tier updated successfully');
+  });
+
+  /**
+   * @route   DELETE /api/v1/admin/memberships/:id
+   * @desc    Delete membership level
+   * @access  Admin
+   */
+  static deleteMembership = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await AdminService.deleteMembership(id);
+    return ResponseUtil.success(res, result, 'Membership tier deleted successfully');
+  });
 }

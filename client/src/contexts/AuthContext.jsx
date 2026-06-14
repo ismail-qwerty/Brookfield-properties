@@ -40,9 +40,18 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // Login function
-  const login = (userData, authToken) => {
+  // Login function - Makes API call to backend
+  const login = async (username, password) => {
     try {
+      // Import API client
+      const api = (await import('../utils/api.js')).default;
+      
+      // Call login API
+      const response = await api.auth.login({ username, password });
+      
+      // Extract data from response
+      const { user: userData, token: authToken } = response.data.data;
+
       // Store token and user data
       localStorage.setItem('authToken', authToken);
       localStorage.setItem('user', JSON.stringify(userData));
@@ -60,7 +69,7 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: 'Failed to complete login' };
+      throw error; // Re-throw to let Login component handle it
     }
   };
 

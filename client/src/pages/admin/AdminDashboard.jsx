@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusBadge, TierBadge, CurrencyDisplay, LoadingSpinner, EmptyState } from '../../components/ui';
 import api from '../../utils/api';
@@ -13,17 +13,32 @@ export default function AdminDashboard() {
   const [debitAmount, setDebitAmount] = useState('');
   const [debitReason, setDebitReason] = useState('');
   const [openDropdown, setOpenDropdown] = useState(null);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     fetchUsers();
   }, [currentPage]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpenDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const { data } = await api.admin.getUsers(currentPage);
-      setUsers(data.users || []);
-      setTotalPages(data.totalPages || 1);
+      const response = await api.admin.getUsers({ page: currentPage, limit: 10 });
+      setUsers(response.data.data.users || []);
+      setTotalPages(response.data.data.pagination?.totalPages || 1);
     } catch (err) {
       console.error('Failed to fetch users:', err);
     } finally {
@@ -170,42 +185,42 @@ export default function AdminDashboard() {
                             >
                               Reset Orders
                             </Link>
-                            <div className="flex-1 relative">
+                            <div className="flex-1 relative" ref={dropdownRef}>
                               <button
                                 onClick={() => setOpenDropdown(openDropdown === user.id ? null : user.id)}
                                 className="w-full bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors"
                               >
-                                More Actions
+                                More Actions ▼
                               </button>
                               {openDropdown === user.id && (
                                 <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                                   <Link
                                     to={`/administration/update-user/${user.id}`}
-                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg"
                                     onClick={() => setOpenDropdown(null)}
                                   >
-                                    Edit Profile
+                                    ✏️ Edit Profile
                                   </Link>
                                   <Link
                                     to={`/administration/wallet/${user.id}`}
                                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                     onClick={() => setOpenDropdown(null)}
                                   >
-                                    Wallet Details
+                                    💰 Wallet Details
                                   </Link>
                                   <Link
                                     to={`/administration/recharge-history/${user.id}`}
                                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                     onClick={() => setOpenDropdown(null)}
                                   >
-                                    Deposit History
+                                    💳 Deposit History
                                   </Link>
                                   <Link
                                     to={`/administration/redemption-history/${user.id}`}
-                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 border-t"
+                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 border-t rounded-b-lg"
                                     onClick={() => setOpenDropdown(null)}
                                   >
-                                    Withdrawal History
+                                    💸 Withdrawal History
                                   </Link>
                                 </div>
                               )}

@@ -33,19 +33,20 @@ export default function UpdateUser() {
 
   const fetchUserData = async () => {
     try {
-      const { data } = await api.admin.getUserById(id);
+      const response = await api.admin.getUserById(id);
+      const userData = response.data.data;
       setFormData({
-        username: data.username || '',
-        full_name: data.full_name || '',
-        email: data.email || '',
-        phone: data.phone || '',
-        referrer_id: data.referrer_id || '',
-        tier_id: data.tier_id || '',
-        credibility: data.credibility || 100,
-        min_withdrawal: data.min_withdrawal || 50.00,
-        max_withdrawal: data.max_withdrawal || 500.00,
-        user_status: data.user_status || 'Active',
-        wallet_status: data.wallet_status || 'Active',
+        username: userData.username || '',
+        full_name: userData.full_name || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        referrer_id: userData.referrer_id || '',
+        tier_id: userData.tier_id || '',
+        credibility: userData.credibility || 100,
+        min_withdrawal: userData.min_withdrawal || 50.00,
+        max_withdrawal: userData.max_withdrawal || 500.00,
+        user_status: userData.user_status || 'Active',
+        wallet_status: userData.wallet_status || 'Active',
       });
     } catch (err) {
       setError('Failed to load user data');
@@ -56,8 +57,8 @@ export default function UpdateUser() {
 
   const fetchMemberships = async () => {
     try {
-      const { data } = await api.admin.getMemberships();
-      setMemberships(data.memberships || []);
+      const response = await api.admin.getMemberships();
+      setMemberships(response.data.data.memberships || []);
     } catch (err) {
       console.error('Failed to fetch memberships:', err);
     }

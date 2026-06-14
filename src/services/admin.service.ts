@@ -606,4 +606,118 @@ export class AdminService {
       throw new AppError(500, 'Failed to assign orders');
     }
   }
+
+  /**
+   * Get all membership levels with member counts
+   */
+  static async getMemberships() {
+    const { data: levels, error } = await supabaseAdmin
+      .from('membership_levels')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) {
+      Logger.error('Failed to fetch membership levels', { error });
+      throw new AppError(500, 'Failed to fetch membership tiers');
+    }
+
+    const { data: users, error: usersError } = await supabaseAdmin
+      .from('users')
+      .select('tier_id');
+
+    if (usersError) {
+      Logger.error('Failed to fetch users for membership counts', { error: usersError });
+    }
+
+    const counts: Record<number, number> = {};
+    (users || []).forEach((u: any) => {
+      counts[u.tier_id] = (counts[u.tier_id] || 0) + 1;
+    });
+
+    const memberships = (levels || []).map((level: any) => ({
+      ...level,
+      member_count: counts[level.id] || 0,
+    }));
+
+    return { memberships };
+  }
+
+  /**
+   * Create a new membership level
+   */
+  static async createMembership(payload: {
+    name: string;
+    order_limit: number;
+    commission_rate: number;
+  }) {
+    const { data, error } = await supabaseAdmin
+      .from('membership_levels')
+      .insert({
+        name: payload.name,
+        order_limit: payload.order_limit,
+        commission_rate: payload.commission_rate,
+      })
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      Logger.error('Failed to create membership level', { error });
+      throw new AppError(500, 'Failed to create membership tier');
+    }
+
+    return { membership: { ...data, member_count: 0 } };
+  }
+
+  /**
+   * Update an existing membership level
+   */
+  static async updateMembership(
+    id: string,
+    payload: { name?: string; order_limit?: number; commission_rate?: number }
+  ) {
+    const { data, error } = await supabaseAdmin
+      .from('membership_levels')
+      .update(payload)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      Logger.error('Failed to update membership level', { id, error });
+      throw new AppError(404, 'Membership tier not found or update failed');
+    }
+
+    return { membership: data };
+  }
+
+  /**
+   * Delete a membership level (only if no users are on this tier)
+   */
+  static async deleteMembership(id: string) {
+    const { count, error: countError } = await supabaseAdmin
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('tier_id', id);
+
+    if (countError) {
+      Logger.error('Failed to check members on tier', { id, error: countError });
+      throw new AppError(500, 'Failed to verify membership tier usage');
+    }
+
+    if ((count || 0) > 0) {
+      throw new AppError(400, 'Cannot delete a membership tier that has active members');
+    }
+
+    const { error } = await supabaseAdmin
+      .from('membership_levels')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      Logger.error('Failed to delete membership level', { id, error });
+      throw new AppError(500, 'Failed to delete membership tier');
+    }
+
+    return { id };
+  }
 }

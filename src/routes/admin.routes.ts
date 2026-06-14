@@ -172,4 +172,38 @@ router.put('/redemptions/:id', (req, res) => {
   res.json({ message: 'Admin process redemption - to be implemented' });
 });
 
+// ================================================================
+// MEMBERSHIP TIER MANAGEMENT ROUTES
+// ================================================================
+
+/**
+ * @route   GET /api/v1/admin/memberships
+ * @desc    Get all membership levels with member counts
+ * @access  Admin
+ */
+router.get('/memberships', AdminController.getMemberships);
+
+/**
+ * @route   POST /api/v1/admin/memberships
+ * @desc    Create new membership level
+ * @access  Admin
+ * @body    {name, order_limit, commission_rate}
+ */
+router.post('/memberships', AdminController.createMembership);
+
+/**
+ * @route   PUT /api/v1/admin/memberships/:id
+ * @desc    Update membership level
+ * @access  Admin
+ * @body    {name?, order_limit?, commission_rate?}
+ */
+router.put('/memberships/:id', AdminController.updateMembership);
+
+/**
+ * @route   DELETE /api/v1/admin/memberships/:id
+ * @desc    Delete membership level (only if no active members)
+ * @access  Admin
+ */
+router.delete('/memberships/:id', AdminController.deleteMembership);
+
 export default router;

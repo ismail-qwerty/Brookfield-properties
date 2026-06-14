@@ -29,8 +29,11 @@ export default function Login() {
 
     try {
       await login(formData.username, formData.password);
+      // Login successful - redirect happens in AuthContext
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      console.error('Login error:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Login failed. Please check your credentials.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

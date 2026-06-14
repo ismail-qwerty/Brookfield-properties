@@ -82,7 +82,10 @@ const api = {
     updateProfile: (data) => apiClient.put('/users/profile', data),
     getWallet: () => apiClient.get('/users/wallet'),
     getOrders: (params) => apiClient.get('/users/orders', { params }),
+    getOrderHistory: (status, page, limit) =>
+      apiClient.get('/users/orders', { params: { status, page, limit } }),
     generateLot: () => apiClient.post('/users/orders/generate'),
+    generateLots: () => apiClient.post('/users/orders/generate'),
     getDailyStats: () => apiClient.get('/users/orders/stats'),
     getRecharges: () => apiClient.get('/users/recharges'),
     requestRecharge: (data) => apiClient.post('/users/recharges', data),
@@ -112,6 +115,11 @@ const api = {
     
     getRedemptions: (params) => apiClient.get('/admin/redemptions', { params }),
     processRedemption: (id, data) => apiClient.put(`/admin/redemptions/${id}`, data),
+
+    getMemberships: () => apiClient.get('/admin/memberships'),
+    createMembership: (data) => apiClient.post('/admin/memberships', data),
+    updateMembership: (id, data) => apiClient.put(`/admin/memberships/${id}`, data),
+    deleteMembership: (id) => apiClient.delete(`/admin/memberships/${id}`),
   },
 };
 

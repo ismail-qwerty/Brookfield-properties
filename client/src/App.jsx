@@ -19,6 +19,7 @@ import History from './pages/user/History';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import UpdateUser from './pages/admin/UpdateUser';
 import ResetSingleOrder from './pages/admin/ResetSingleOrder';
+import ResetOrders from './pages/admin/ResetOrders';
 import OrderList from './pages/admin/OrderList';
 import Memberships from './pages/admin/Memberships';
 
@@ -85,11 +86,15 @@ function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="update-user/:id" element={<UpdateUser />} />
             <Route path="reset-single/:id" element={<ResetSingleOrder />} />
+            <Route path="reset-orders/:id" element={<ResetOrders />} />
             <Route path="properties" element={<OrderList />} />
             <Route path="memberships" element={<Memberships />} />
-            <Route path="memberships" element={<div className="p-8">Admin Memberships</div>} />
-            <Route path="recharges" element={<div className="p-8">Admin Recharges</div>} />
-            <Route path="redemptions" element={<div className="p-8">Admin Redemptions</div>} />
+            <Route path="add-member" element={<div className="p-8"><h1 className="text-2xl font-bold">Add Member</h1><p className="mt-4 text-gray-600">Manual user registration form.</p></div>} />
+            <Route path="wallet/:id" element={<div className="p-8"><h1 className="text-2xl font-bold">Wallet Details</h1><p className="mt-4 text-gray-600">View detailed wallet information for a user.</p></div>} />
+            <Route path="recharge-history/:id" element={<div className="p-8"><h1 className="text-2xl font-bold">User Deposit History</h1><p className="mt-4 text-gray-600">View all deposit/recharge records for this user.</p></div>} />
+            <Route path="redemption-history/:id" element={<div className="p-8"><h1 className="text-2xl font-bold">User Withdrawal History</h1><p className="mt-4 text-gray-600">View all withdrawal/redemption records for this user.</p></div>} />
+            <Route path="recharges" element={<div className="p-8"><h1 className="text-2xl font-bold">Pending Recharges</h1><p className="mt-4 text-gray-600">Approve or reject deposit requests.</p></div>} />
+            <Route path="redemptions" element={<div className="p-8"><h1 className="text-2xl font-bold">Pending Redemptions</h1><p className="mt-4 text-gray-600">Approve or reject withdrawal requests.</p></div>} />
           </Route>
 
           {/* ============================================ */}
