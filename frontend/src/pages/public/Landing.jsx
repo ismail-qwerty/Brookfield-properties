@@ -8,7 +8,8 @@ export default function Landing() {
         muted 
         loop 
         playsInline
-        preload="auto"
+        preload="metadata"
+        loading="lazy"
       >
         <source src="/bg.mp4" type="video/mp4" />
         Your browser does not support the video tag.
