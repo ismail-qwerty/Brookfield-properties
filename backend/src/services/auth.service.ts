@@ -159,6 +159,8 @@ export class AuthService {
   }
 
   static async login(username: string, password: string) {
+    console.log('Login attempt for username:', username);
+    
     // Find user by username
     const { data: user, error } = await supabaseAdmin
       .from('users')
@@ -166,19 +168,28 @@ export class AuthService {
       .eq('username', username)
       .single();
 
+    console.log('User lookup result:', { found: !!user, error: error?.message });
+
     if (error || !user) {
+      console.error('User not found or error:', error);
       throw new AppError(401, 'Invalid username or password');
     }
 
+    console.log('User found:', { id: user.id, username: user.username, status: user.user_status });
+
     // Check if account is active
     if (user.user_status !== 'Active') {
+      console.log('Account is not active:', user.user_status);
       throw new AppError(403, 'Your account has been deactivated. Please contact support.');
     }
 
     // Verify password
+    console.log('Verifying password...');
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    console.log('Password valid:', isPasswordValid);
 
     if (!isPasswordValid) {
+      console.error('Invalid password for user:', username);
       throw new AppError(401, 'Invalid username or password');
     }
 
@@ -204,6 +215,8 @@ export class AuthService {
       .select('name, order_limit, commission_rate')
       .eq('id', user.tier_id)
       .single();
+
+    console.log('Login successful for user:', username);
 
     return {
       user: {
