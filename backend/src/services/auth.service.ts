@@ -24,7 +24,7 @@ export class AuthService {
       reference_code,
     } = userData;
 
-    // Allow admin to bypass reference code validation if empty
+    // Validate reference code if provided
     let referrer_id = null;
     if (reference_code && reference_code.trim() !== '') {
       const { data: referrer, error: referrerError } = await supabaseAdmin
@@ -33,7 +33,12 @@ export class AuthService {
         .eq('reference_code', reference_code)
         .maybeSingle();
 
-      if (referrerError || !referrer) {
+      if (referrerError) {
+        console.error('Referrer lookup error:', referrerError);
+        throw new AppError(400, 'Error validating reference code. Please try again.');
+      }
+
+      if (!referrer) {
         throw new AppError(400, 'Invalid reference code. Please check your invitation link.');
       }
 
@@ -42,6 +47,17 @@ export class AuthService {
       }
 
       referrer_id = referrer.id;
+    }
+
+    // Check if username already exists
+    const { data: existingUsername } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
+
+    if (existingUsername) {
+      throw new AppError(400, 'Username already taken');
     }
 
     // Check if email already exists
@@ -73,25 +89,65 @@ export class AuthService {
     // Generate unique reference code for new user
     const newReferenceCode = this.generateReferenceCode();
 
-    // Insert user via RPC function to bypass PostgREST ON CONFLICT issue
-    const { data: createdUser, error: insertError } = await supabaseAdmin
-      .rpc('create_new_user', {
-        p_username: username,
-        p_full_name: full_name,
-        p_email: email,
-        p_phone: phone,
-        p_password_hash: password_hash,
-        p_wallet_password_hash: wallet_password_hash,
-        p_reference_code: newReferenceCode,
-        p_referrer_id: referrer_id,
-      });
+    // Try RPC function first, fallback to direct insert
+    let createdUser;
+    try {
+      const { data: rpcUser, error: rpcError } = await supabaseAdmin
+        .rpc('create_new_user', {
+          p_username: username,
+          p_full_name: full_name,
+          p_email: email,
+          p_phone: phone,
+          p_password_hash: password_hash,
+          p_wallet_password_hash: wallet_password_hash,
+          p_reference_code: newReferenceCode,
+          p_referrer_id: referrer_id,
+        });
 
-    if (insertError) {
-      console.error('User insert error:', insertError);
-      if (insertError.message?.includes('email') || insertError.message?.includes('phone')) {
-        throw new AppError(400, 'Email or phone number already exists');
+      if (rpcError) {
+        throw rpcError;
       }
-      throw new AppError(500, `Failed to create user: ${insertError.message}`);
+      createdUser = rpcUser;
+    } catch (rpcError: any) {
+      console.log('RPC function not available, using direct insert:', rpcError.message);
+      
+      // Fallback: Direct insert
+      const { data: insertedUser, error: insertError } = await supabaseAdmin
+        .from('users')
+        .insert({
+          username,
+          full_name,
+          email,
+          phone,
+          password_hash,
+          wallet_password_hash,
+          reference_code: newReferenceCode,
+          referrer_id,
+          tier_id: 1,
+          user_status: 'Active',
+          wallet_status: 'Active',
+          user_type: 'User',
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('User insert error:', insertError);
+        throw new AppError(500, `Failed to create user: ${insertError.message}`);
+      }
+
+      // Create wallet for new user
+      await supabaseAdmin
+        .from('wallets')
+        .insert({
+          user_id: insertedUser.id,
+          balance: 0,
+          total_recharged: 0,
+          total_earned: 0,
+          total_withdrawn: 0,
+        });
+
+      createdUser = insertedUser;
     }
 
     const token = this.generateToken(String(createdUser.id));

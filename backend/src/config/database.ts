@@ -1,42 +1,34 @@
 import { createClient } from '@supabase/supabase-js';
 import WebSocket from 'ws';
-import { ENV } from './environment.js';
 
-export const supabaseAdmin = createClient(
-  ENV.SUPABASE.URL,
-  ENV.SUPABASE.SERVICE_ROLE_KEY,
-  {
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+// 1. Admin client setup with object type casting
+export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
-      autoRefreshToken: false,
-      persistSession: false,
+        autoRefreshToken: false,
+        persistSession: false,
     },
     db: {
-      schema: 'public',
+        schema: 'public',
     },
     realtime: {
-      params: {
-        eventsPerSecond: 10,
-      },
-    },
-    global: {
-      headers: {
-        'x-application-name': 'brookfield-properties-api',
-      },
-    },
-  }
-);
+        globalRESTWS: true,
+        transport: WebSocket
+    }
+} as any);
 
-export const supabase = createClient(
-  ENV.SUPABASE.URL,
-  ENV.SUPABASE.ANON_KEY,
-  {
+// 2. Public client setup with object type casting
+export const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: {
-      persistSession: false,
+        persistSession: false
     },
     realtime: {
-      transport: WebSocket as any,
-    },
-  }
-);
+        globalRESTWS: true,
+        transport: WebSocket
+    }
+} as any);
 
 export default supabaseAdmin;
