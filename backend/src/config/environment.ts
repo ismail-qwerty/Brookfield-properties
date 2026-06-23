@@ -19,7 +19,7 @@ export const ENV = {
   },
   
   CORS: {
-    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
   },
 } as const;
 

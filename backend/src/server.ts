@@ -4,7 +4,7 @@ import { Logger } from './utils/logger.js';
 
 const PORT = ENV.PORT;
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   Logger.info(`🚀 Brookfield Properties API Server Started`);
   Logger.info(`📍 Environment: ${ENV.NODE_ENV}`);
   Logger.info(`🌐 Server running on port ${PORT}`);
