@@ -1,4 +1,6 @@
 export default function Landing() {
+  const STATIC_URL = import.meta.env.VITE_STATIC_URL || '/static';
+  
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Background Video */}
@@ -10,7 +12,7 @@ export default function Landing() {
         playsInline
         preload="auto"
       >
-        <source src="/bg.mp4" type="video/mp4" />
+        <source src={`${STATIC_URL}/bg.mp4`} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
 
@@ -25,7 +27,7 @@ export default function Landing() {
             <div className="text-center">
               {/* Logo */}
               <div className="mb-4 flex justify-center">
-                <img src="/BR logo.webp" alt="Brookfield Properties" className="h-14 md:h-16" />
+                <img src={`${STATIC_URL}/BR logo.webp`} alt="Brookfield Properties" className="h-14 md:h-16" />
               </div>
 
               {/* Heading */}

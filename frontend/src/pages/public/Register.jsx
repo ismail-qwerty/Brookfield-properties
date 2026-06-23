@@ -4,6 +4,7 @@ import api from '../../utils/api';
 import { LoadingSpinner } from '../../components/ui';
 
 export default function Register() {
+  const STATIC_URL = import.meta.env.VITE_STATIC_URL || '/static';
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: '',
@@ -91,7 +92,7 @@ export default function Register() {
         preload="auto"
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       >
-        <source src="/bg.mp4" type="video/mp4" />
+        <source src={`${STATIC_URL}/bg.mp4`} type="video/mp4" />
       </video>
       
       {/* Dark Overlay */}

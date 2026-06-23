@@ -15,6 +15,11 @@ build/
 client/dist/
 client/build/
 
+# Static assets (managed separately, too large for git)
+public/*.mp4
+public/*.mov
+public/*.avi
+
 # Logs
 *.log
 npm-debug.log*
