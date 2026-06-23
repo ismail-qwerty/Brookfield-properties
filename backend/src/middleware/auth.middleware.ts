@@ -34,7 +34,7 @@ export const authenticate = async (
       return ResponseUtil.forbidden(res, 'Account is deactivated');
     }
 
-    (req as any).user = user as User;
+    (req as AuthRequest).user = user as User;
     next();
   } catch (error) {
     return ResponseUtil.unauthorized(res, 'Invalid or expired token');
@@ -42,7 +42,7 @@ export const authenticate = async (
 };
 
 export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  const user = (req as any).user;
+  const user = (req as AuthRequest).user;
   
   if (!user || user.user_type !== 'Admin') {
     return ResponseUtil.forbidden(res, 'Admin access required');

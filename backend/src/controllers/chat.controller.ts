@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { ChatService } from '../services/chat.service.js';
 import { ResponseUtil } from '../utils/response.js';
+import { AuthRequest } from '../types/index.js';
 
 export class ChatController {
   // User: Get or create conversation
   static async getUserConversation(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as AuthRequest).user.id;
       const conversation = await ChatService.getUserConversation(userId);
       ResponseUtil.success(res, conversation, 'Conversation retrieved');
     } catch (error) {
@@ -17,7 +18,7 @@ export class ChatController {
   static async getMessages(req: Request, res: Response, next: NextFunction) {
     try {
       const conversationId = req.params.conversationId;
-      const userId = (req as any).user.id;
+      const userId = (req as AuthRequest).user.id;
       const messages = await ChatService.getMessages(conversationId, userId);
       ResponseUtil.success(res, messages, 'Messages retrieved');
     } catch (error) {
@@ -29,7 +30,7 @@ export class ChatController {
   static async sendMessage(req: Request, res: Response, next: NextFunction) {
     try {
       const conversationId = req.params.conversationId;
-      const userId = (req as any).user.id;
+      const userId = (req as AuthRequest).user.id;
       const { message, image_url } = req.body;
 
       const newMessage = await ChatService.sendMessage(conversationId, userId, message, image_url);
@@ -42,7 +43,7 @@ export class ChatController {
   static async markAsRead(req: Request, res: Response, next: NextFunction) {
     try {
       const conversationId = req.params.conversationId;
-      const userId = (req as any).user.id;
+      const userId = (req as AuthRequest).user.id;
       await ChatService.markAsRead(conversationId, userId);
       ResponseUtil.success(res, null, 'Messages marked as read');
     } catch (error) {
@@ -52,7 +53,7 @@ export class ChatController {
 
   static async getUnreadCount(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as AuthRequest).user.id;
       const count = await ChatService.getUnreadCount(userId);
       ResponseUtil.success(res, count, 'Unread count retrieved');
     } catch (error) {
@@ -73,7 +74,7 @@ export class ChatController {
   static async assignConversation(req: Request, res: Response, next: NextFunction) {
     try {
       const conversationId = req.params.conversationId;
-      const agentId = (req as any).user.id;
+      const agentId = (req as AuthRequest).user.id;
       const conversation = await ChatService.assignConversation(conversationId, agentId);
       ResponseUtil.success(res, conversation, 'Conversation assigned');
     } catch (error) {

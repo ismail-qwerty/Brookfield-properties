@@ -7,7 +7,7 @@ export const ENV = {
   PORT: parseInt(process.env.PORT || '3000', 10),
   API_VERSION: process.env.API_VERSION || 'v1',
   
-  DATABASE_URL: process.env.DATABASE_URL,
+  DATABASE_URL: process.env.DATABASE_URL || '',
   
   SUPABASE: {
     URL: process.env.SUPABASE_URL!,
@@ -23,7 +23,7 @@ export const ENV = {
   CORS: {
     ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
   },
-} as const;
+};
 
 const requiredEnvVars = [
   'SUPABASE_URL',

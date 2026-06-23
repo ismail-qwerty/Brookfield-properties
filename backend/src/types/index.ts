@@ -40,5 +40,5 @@ export interface Wallet {
 }
 
 export interface AuthRequest extends Request {
-  user?: User;
+  user: User;
 }
