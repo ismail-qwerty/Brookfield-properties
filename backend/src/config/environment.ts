@@ -2,6 +2,8 @@ import { config } from 'dotenv';
 
 config();
 
+console.log('[ENV] SUPABASE_URL:', process.env.SUPABASE_URL);
+console.log('[ENV] SERVICE_ROLE_KEY prefix:', process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 50));
 export const ENV = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT || '3000', 10),
