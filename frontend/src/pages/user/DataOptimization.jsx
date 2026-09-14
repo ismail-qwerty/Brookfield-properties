@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
 
+// Must match backend MINIMUM_BALANCE_TO_TRADE (order.service.ts)
+const MINIMUM_BALANCE_TO_TRADE = 50;
+
 export default function DataOptimization() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -102,14 +105,14 @@ export default function DataOptimization() {
       </section>
 
       {/* Low balance notice */}
-      {showAlert && stats.balance < 0 && (
+      {showAlert && stats.balance < MINIMUM_BALANCE_TO_TRADE && (
         <section className="wrap pb-6">
           <div className="border-l-2 border-white bg-white/5 px-5 py-4 flex items-start justify-between gap-6">
             <div>
               <h2 className="text-[15px] text-white mb-1">Low Balance</h2>
               <p className="text-[13px] text-white/60">
-                Your balance is ${Math.abs(stats.balance).toFixed(2)} short for the next
-                analyst review. Please contact support or add funds.
+                A minimum balance of ${MINIMUM_BALANCE_TO_TRADE.toFixed(2)} is required to generate a lot —
+                you're ${Math.max(0, MINIMUM_BALANCE_TO_TRADE - stats.balance).toFixed(2)} short. Please contact support or add funds.
               </p>
             </div>
             <button

@@ -14,6 +14,11 @@ export const NEGATIVE_BALANCE_FLAG = 'AWAITING_BALANCE_RECOVERY';
 // order, their referrer is credited this fraction of that commission.
 export const REFERRAL_BONUS_RATE = 0.15;
 
+// A user's wallet balance must be at least this much to generate or submit
+// a lot (not just non-negative) — keeps accounts that have drained close to
+// zero from continuing to trade.
+export const MINIMUM_BALANCE_TO_TRADE = 50;
+
 export class OrderService {
   /**
    * Credit a referrer with their cut of a referred user's just-earned
@@ -110,8 +115,8 @@ export class OrderService {
         throw new AppError(500, 'Wallet not found');
       }
 
-      if (Number(wallet.balance) < 0) {
-        throw new AppError(403, 'Cannot generate orders with negative balance. Please contact support or recharge your account.');
+      if (Number(wallet.balance) < MINIMUM_BALANCE_TO_TRADE) {
+        throw new AppError(403, `A minimum balance of $${MINIMUM_BALANCE_TO_TRADE.toFixed(2)} is required to generate a lot. Please recharge your account.`);
       }
 
       // Step 2: Fetch membership
@@ -416,10 +421,10 @@ export class OrderService {
         throw new AppError(500, 'Wallet not found');
       }
 
-      // Check if balance is negative - block submission
-      if (Number(wallet.balance) < 0) {
+      // Block submission if balance has dropped below the minimum required to trade
+      if (Number(wallet.balance) < MINIMUM_BALANCE_TO_TRADE) {
         await supabaseAdmin.from('orders').update({ status: 'Pending' }).eq('id', orderId);
-        throw new AppError(403, 'Cannot submit orders with negative balance. Please contact support or recharge your account.');
+        throw new AppError(403, `A minimum balance of $${MINIMUM_BALANCE_TO_TRADE.toFixed(2)} is required to submit a lot. Please recharge your account.`);
       }
 
       // Calculate new balance
