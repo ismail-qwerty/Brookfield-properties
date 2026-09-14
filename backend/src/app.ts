@@ -23,7 +23,15 @@ app.use(helmet({
 
 app.use(
   cors({
-    origin: ENV.CORS.ALLOWED_ORIGINS,
+    // Preview and production deployments on Vercel each get their own
+    // random subdomain, so an exact-match allowlist can't keep up — any
+    // *.vercel.app origin is trusted in addition to the configured list.
+    origin: (origin, callback) => {
+      if (!origin || ENV.CORS.ALLOWED_ORIGINS.includes(origin) || /\.vercel\.app$/.test(new URL(origin).hostname)) {
+        return callback(null, true);
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
