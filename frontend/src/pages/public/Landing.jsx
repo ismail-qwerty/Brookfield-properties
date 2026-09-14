@@ -1,8 +1,6 @@
 import { Link } from 'react-router-dom';
 
 export default function Landing() {
-  const STATIC_URL = import.meta.env.VITE_STATIC_URL || '/static';
-
   return (
     // 100dvh + overflow-hidden pins the page to exactly one viewport. Every
     // measure below is clamped against vh so the panel compresses on short
@@ -16,7 +14,7 @@ export default function Landing() {
         playsInline
         preload="auto"
       >
-        <source src={`${STATIC_URL}/bg.mp4`} type="video/mp4" />
+        <source src="/bg.mp4" type="video/mp4" />
         Your browser does not support the video tag.
       </video>
 

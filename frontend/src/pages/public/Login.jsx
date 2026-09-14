@@ -4,7 +4,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { LoadingSpinner, BrandLogo } from '../../components/ui';
 
 export default function Login() {
-  const STATIC_URL = import.meta.env.VITE_STATIC_URL || '/static';
   const { login } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
@@ -52,7 +51,7 @@ export default function Login() {
           preload="auto"
           className="absolute inset-0 w-full h-full object-cover opacity-55"
         >
-          <source src={`${STATIC_URL}/bg.mp4`} type="video/mp4" />
+          <source src="/bg.mp4" type="video/mp4" />
         </video>
 
         <div className="relative z-10 h-full flex flex-col justify-between p-14">
