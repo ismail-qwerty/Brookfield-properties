@@ -7,21 +7,22 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Primary Teal - Main brand color
+        // Primary - Main brand color. Filled elements are pure black; since
+        // black cannot darken, the 700 "hover" step lightens instead.
         primary: {
-          DEFAULT: '#0D9488',
-          50: '#E6F7F5',
-          100: '#CCEFEB',
-          200: '#99DFD7',
-          300: '#66CFC3',
-          400: '#33BFAF',
-          500: '#0D9488',
-          600: '#0A766D',
-          700: '#085952',
-          800: '#053B37',
-          900: '#031E1C',
+          DEFAULT: '#000000',
+          50: '#F7F7F7',
+          100: '#EFEFEF',
+          200: '#D9D9D9',
+          300: '#BFBFBF',
+          400: '#8C8C8C',
+          500: '#595959',
+          600: '#000000',
+          700: '#333333',
+          800: '#1A1A1A',
+          900: '#000000',
         },
-        // Solid Green - Success, active states, generate buttons
+        // Solid Green - Success, active states (status indicators only)
         green: {
           DEFAULT: '#16A34A',
           50: '#E8F7ED',
@@ -35,51 +36,75 @@ export default {
           800: '#09411E',
           900: '#04210F',
         },
-        // Action Blue - Primary buttons, links, CTAs
+        // Action - Primary buttons, links, CTAs (mirrors `primary`)
         blue: {
-          DEFAULT: '#2563EB',
-          50: '#EBF2FE',
-          100: '#D7E5FD',
-          200: '#AFCBFB',
-          300: '#87B1F9',
-          400: '#5F97F7',
-          500: '#2563EB',
-          600: '#1E4FBC',
-          700: '#163B8D',
-          800: '#0F285E',
-          900: '#07142F',
+          DEFAULT: '#000000',
+          50: '#F7F7F7',
+          100: '#EFEFEF',
+          200: '#D9D9D9',
+          300: '#BFBFBF',
+          400: '#8C8C8C',
+          500: '#595959',
+          600: '#000000',
+          700: '#333333',
+          800: '#1A1A1A',
+          900: '#000000',
         },
-        // Sidebar Dark - Admin panel, dark backgrounds
+        // Sidebar Dark - Admin panel. 500 is Blackstone's dark section tone.
         sidebar: {
-          DEFAULT: '#1A1F1A',
-          50: '#E8E9E8',
-          100: '#D1D3D1',
-          200: '#A3A7A3',
-          300: '#757B75',
-          400: '#474F47',
-          500: '#1A1F1A',
-          600: '#151915',
-          700: '#101310',
-          800: '#0A0C0A',
-          900: '#050605',
+          DEFAULT: '#151B17',
+          50: '#F2F2F2',
+          100: '#E0E0E0',
+          200: '#B3B3B3',
+          300: '#808080',
+          400: '#4D4D4D',
+          500: '#151B17',
+          600: '#111614',
+          700: '#0D110F',
+          800: '#151B17',
+          900: '#000000',
         },
         // Additional system colors
         teal: {
-          DEFAULT: '#0D9488',
-          light: '#14B8A6',
-          dark: '#0F766E',
+          DEFAULT: '#111111',
+          light: '#2E2E2E',
+          dark: '#000000',
         },
       },
       fontFamily: {
-        sans: ['Montserrat', 'Nunito Sans', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        serif: ['Source Serif 4', 'Georgia', 'Times New Roman', 'serif'],
       },
       spacing: {
         '128': '32rem',
         '144': '36rem',
       },
-      borderRadius: {
-        '4xl': '2rem',
-      },
+    },
+    // Blackstone's design language is hard-edged: every corner is square and
+    // nothing casts a shadow. Flattening the scales applies that everywhere at
+    // once, so per-page `rounded-*`/`shadow-*` utilities inherit the theme.
+    // `full` stays circular for avatars and spinners.
+    borderRadius: {
+      none: '0px',
+      sm: '0px',
+      DEFAULT: '0px',
+      md: '0px',
+      lg: '0px',
+      xl: '0px',
+      '2xl': '0px',
+      '3xl': '0px',
+      '4xl': '0px',
+      full: '9999px',
+    },
+    boxShadow: {
+      none: 'none',
+      sm: 'none',
+      DEFAULT: 'none',
+      md: 'none',
+      lg: 'none',
+      xl: 'none',
+      '2xl': 'none',
+      inner: 'none',
     },
   },
   plugins: [],

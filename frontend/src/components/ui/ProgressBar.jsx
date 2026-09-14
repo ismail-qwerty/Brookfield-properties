@@ -1,12 +1,13 @@
 export default function ProgressBar({ value, max = 100, label, showPercentage = true, color = 'green' }) {
   const percentage = Math.min((value / max) * 100, 100);
   
+  // Callers pass semantic names; the monochrome theme renders them all black.
   const colorClasses = {
-    green: 'bg-green-500',
-    blue: 'bg-blue-500',
-    teal: 'bg-primary-500',
-    orange: 'bg-orange-500',
-    red: 'bg-red-500',
+    green: 'bg-black',
+    blue: 'bg-black',
+    teal: 'bg-black',
+    orange: 'bg-black',
+    red: 'bg-black',
   };
 
   return (

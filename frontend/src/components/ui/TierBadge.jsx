@@ -1,17 +1,18 @@
 export default function TierBadge({ tier, size = 'md' }) {
+  // Monochrome tiers: higher tiers read darker.
   const getTierStyles = () => {
     const tierName = tier?.toLowerCase() || '';
-    
+
     if (tierName.includes('silver')) {
-      return 'bg-blue-500 text-white';
+      return 'bg-white text-black border border-gray-400';
     }
     if (tierName.includes('gold')) {
-      return 'bg-yellow-500 text-white';
+      return 'bg-gray-500 text-white';
     }
     if (tierName.includes('platinum')) {
-      return 'bg-purple-500 text-white';
+      return 'bg-black text-white';
     }
-    return 'bg-gray-500 text-white';
+    return 'bg-gray-200 text-black';
   };
 
   const sizeClasses = {
@@ -22,7 +23,7 @@ export default function TierBadge({ tier, size = 'md' }) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full font-semibold ${getTierStyles()} ${sizeClasses[size]}`}
+      className={`inline-flex items-center font-medium tracking-wide ${getTierStyles()} ${sizeClasses[size]}`}
     >
       {tier}
     </span>

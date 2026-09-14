@@ -2,31 +2,312 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  --ink: #000000;
+  --ink-70: #4a4a4a;
+  --ink-45: #767676;
+  --ink-25: #b0b0b0;
+  --rule: #e2e2e2;
+  --rule-strong: #c9c9c9;
+  --paper: #ffffff;
+  --paper-alt: #f6f6f4;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
 @layer base {
   body {
-    @apply bg-white text-gray-900;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    @apply bg-white font-sans antialiased;
+    color: var(--ink);
+    font-weight: 300;
+    letter-spacing: 0.012em;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  p {
+    color: var(--ink-70);
+  }
+
+  /* Money and metrics must align vertically in tables and stat blocks */
+  table,
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  ::selection {
+    background: var(--ink);
+    color: var(--paper);
   }
 }
 
 @layer components {
-  .btn-primary {
-    @apply bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-600 transition-colors;
+  /* ---------- Layout ---------- */
+  .wrap {
+    @apply mx-auto w-full max-w-[1240px] px-6 md:px-10;
   }
-  
-  .btn-green {
-    @apply bg-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors;
+
+  .wrap-narrow {
+    @apply mx-auto w-full max-w-[760px] px-6 md:px-10;
   }
-  
-  .btn-blue {
-    @apply bg-blue text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors;
+
+  .section {
+    @apply py-16 md:py-24;
   }
-  
-  .card {
-    @apply bg-white rounded-xl shadow-md p-6;
+
+  .section-tight {
+    @apply py-12 md:py-16;
   }
-  
+
+  /* Black masthead band that opens interior pages */
+  .page-head {
+    @apply bg-black text-white pt-16 pb-14 md:pt-24 md:pb-20;
+  }
+
+  /* ---------- Typography ---------- */
+  .eyebrow {
+    @apply text-[11px] uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 400;
+    color: var(--ink-45);
+  }
+
+  .eyebrow-light {
+    @apply text-[11px] uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .display {
+    @apply font-serif text-[42px] md:text-[64px];
+    font-weight: 300;
+    line-height: 1.02;
+    letter-spacing: 0.005em;
+  }
+
+  .title {
+    @apply font-serif text-[30px] md:text-[40px];
+    font-weight: 300;
+    line-height: 1.15;
+  }
+
+  .lede {
+    @apply text-[17px] md:text-[19px];
+    font-weight: 300;
+    line-height: 1.55;
+    color: var(--ink-70);
+  }
+
+  .lede-light {
+    @apply text-[17px] md:text-[19px];
+    font-weight: 300;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  /* ---------- Rules ---------- */
+  .rule {
+    border-top: 1px solid var(--rule);
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-[14px] text-[14px] leading-none;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    transition: background-color 0.25s var(--ease), color 0.25s var(--ease),
+      border-color 0.25s var(--ease), opacity 0.25s var(--ease);
+    white-space: nowrap;
+  }
+
+  .btn-solid {
+    @apply btn bg-black text-white;
+  }
+
+  .btn-solid:hover:not(:disabled) {
+    background: var(--ink-70);
+  }
+
+  .btn-outline {
+    @apply btn border border-black text-black bg-transparent;
+  }
+
+  .btn-outline:hover:not(:disabled) {
+    @apply bg-black text-white;
+  }
+
+  .btn-on-dark {
+    @apply btn border border-white/70 text-white bg-transparent;
+  }
+
+  .btn-on-dark:hover:not(:disabled) {
+    @apply bg-white text-black border-white;
+  }
+
+  .btn:disabled {
+    @apply opacity-40 cursor-not-allowed;
+  }
+
+  /* Text link with a rule that draws in on hover */
+  .link-quiet {
+    @apply inline-block relative;
+    color: var(--ink);
+    transition: opacity 0.2s var(--ease);
+  }
+
+  .link-quiet::after {
+    content: '';
+    @apply absolute left-0 bottom-[-2px] h-px w-full origin-left;
+    background: currentColor;
+    transform: scaleX(0);
+    transition: transform 0.3s var(--ease);
+  }
+
+  .link-quiet:hover::after {
+    transform: scaleX(1);
+  }
+
+  /* ---------- Surfaces ---------- */
+  .panel {
+    @apply bg-white border p-6 md:p-8;
+    border-color: var(--rule);
+  }
+
+  .panel-flush {
+    @apply bg-white border;
+    border-color: var(--rule);
+  }
+
+  /* ---------- Metrics ---------- */
+  .stat-label {
+    @apply text-[11px] uppercase mb-3;
+    letter-spacing: 0.16em;
+    color: var(--ink-45);
+  }
+
+  .stat-value {
+    @apply font-serif text-[32px] md:text-[38px] tnum;
+    font-weight: 300;
+    line-height: 1;
+  }
+
+  /* ---------- Forms ---------- */
+  .label {
+    @apply block text-[11px] uppercase mb-2;
+    letter-spacing: 0.14em;
+    color: var(--ink-45);
+  }
+
+  .field,
   .input-field {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+    @apply w-full bg-transparent px-0 py-3 text-[16px];
+    font-weight: 300;
+    color: var(--ink);
+    border: 0;
+    border-bottom: 1px solid var(--rule-strong);
+    border-radius: 0;
+    transition: border-color 0.25s var(--ease);
   }
+
+  .field:focus,
+  .input-field:focus {
+    @apply outline-none;
+    border-bottom-color: var(--ink);
+  }
+
+  .field::placeholder,
+  .input-field::placeholder {
+    color: var(--ink-25);
+  }
+
+  .field-dark {
+    @apply w-full bg-transparent px-0 py-3 text-[16px] text-white;
+    font-weight: 300;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    transition: border-color 0.25s var(--ease);
+  }
+
+  .field-dark:focus {
+    @apply outline-none border-white;
+  }
+
+  /* ---------- Tables ---------- */
+  .data-table {
+    @apply w-full text-[14px];
+    border-collapse: collapse;
+  }
+
+  .data-table thead th {
+    @apply text-left text-[10px] uppercase py-4 px-4 font-normal;
+    letter-spacing: 0.16em;
+    color: var(--ink-45);
+    border-bottom: 1px solid var(--ink);
+    white-space: nowrap;
+  }
+
+  .data-table tbody td {
+    @apply py-4 px-4 align-middle;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .data-table tbody tr {
+    transition: background-color 0.18s var(--ease);
+  }
+
+  .data-table tbody tr:hover {
+    background: var(--paper-alt);
+  }
+
+  /* ---------- Legacy alias kept so existing markup still renders ---------- */
+  .btn-primary {
+    @apply btn-solid;
+  }
+
+  .card {
+    @apply panel;
+  }
+}
+
+/* ============================================================
+   THEME OVERRIDES
+   Placed after `utilities` and marked important so the type system
+   wins over per-page `font-bold` utilities without editing every
+   heading. Blackstone sets all headings in a light-weight serif.
+   ============================================================ */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif !important;
+  font-weight: 300 !important;
+  letter-spacing: 0.008em;
+}
+
+/* The rule above would otherwise clobber the icon font on
+   <i class="fa"> elements nested inside headings. */
+.fa {
+  font-family: FontAwesome !important;
+  font-weight: normal !important;
+}
+
+h1 {
+  line-height: 1.05;
+}
+
+h2,
+h3 {
+  line-height: 1.2;
+}
+
+/* Visible keyboard focus everywhere, without a focus ring on mouse clicks */
+:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 3px;
 }

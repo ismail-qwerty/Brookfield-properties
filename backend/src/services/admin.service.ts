@@ -1,8 +1,72 @@
 import { supabaseAdmin } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { Logger } from '../utils/logger.js';
+import { NEGATIVE_BALANCE_FLAG } from './order.service.js';
 
 export class AdminService {
+  /**
+   * Adjust a user's wallet balance by a signed amount: positive adds,
+   * negative subtracts. "Reward" (total_earned) moves in lockstep, the same
+   * way it already does for organic commission credits in
+   * OrderService.submitOrder. If this brings the balance back to zero or
+   * above, any orders that already paid out but were left Pending pending
+   * recovery (see NEGATIVE_BALANCE_FLAG in OrderService.submitOrder) are
+   * auto-completed.
+   *
+   * Both applyDebit and updateUser's balance_adjustment go through this
+   * single implementation so the two admin tools that can change a
+   * balance can't drift into different sign conventions or side effects
+   * again — that mismatch is exactly what caused confusion before.
+   */
+  private static async adjustWalletBalance(userId: string, amount: number) {
+    const { data: wallet, error: walletError } = await supabaseAdmin
+      .from('wallets')
+      .select('balance, total_earned')
+      .eq('user_id', userId)
+      .single();
+
+    if (walletError || !wallet) {
+      throw new AppError(404, 'User wallet not found');
+    }
+
+    const previousBalance = Number(wallet.balance);
+    const previousTotalEarned = Number(wallet.total_earned);
+    const newBalance = previousBalance + amount;
+    const newTotalEarned = previousTotalEarned + amount;
+
+    const { error: updateError } = await supabaseAdmin
+      .from('wallets')
+      .update({ balance: newBalance, total_earned: newTotalEarned })
+      .eq('user_id', userId);
+
+    if (updateError) {
+      Logger.error('Failed to update wallet balance', { userId, error: updateError });
+      throw new AppError(500, 'Failed to update wallet balance');
+    }
+
+    let resolvedOrderIds: string[] = [];
+    if (newBalance >= 0) {
+      const { data: resolved, error: resolveError } = await supabaseAdmin
+        .from('orders')
+        .update({ status: 'Completed', property_name: null, created_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('status', 'Pending')
+        .eq('property_name', NEGATIVE_BALANCE_FLAG)
+        .select('id');
+
+      if (resolveError) {
+        Logger.error('Failed to auto-complete negative-balance orders', { userId, error: resolveError });
+      } else {
+        resolvedOrderIds = (resolved || []).map((o) => o.id);
+        if (resolvedOrderIds.length > 0) {
+          Logger.info('Auto-completed orders after balance recovery', { userId, resolvedOrderIds });
+        }
+      }
+    }
+
+    return { previousBalance, newBalance, previousTotalEarned, newTotalEarned, resolvedOrderIds };
+  }
+
   /**
    * Get paginated list of all users with wallet and tier information
    */
@@ -71,38 +135,60 @@ export class AdminService {
         throw new AppError(500, 'Failed to fetch users');
       }
 
-      // Get referrer names for users with referrer_id
+      // "Today" boundary for the per-user today_earnings/orders_today
+      // computed below — same definition UserService.getProfile uses for
+      // the user's own view, so the admin panel and a user's own page
+      // always agree on this number.
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayISO = today.toISOString();
+
+      // Get referrer names + today's activity for each user
       const usersWithReferrers = await Promise.all(
         (users || []).map(async (user) => {
           // Supabase returns relationships as arrays, so extract first element
           const wallet = Array.isArray(user.wallets) ? user.wallets[0] : user.wallets;
           const membership = Array.isArray(user.membership_levels) ? user.membership_levels[0] : user.membership_levels;
-          
+
+          let referrer_name = null;
           if (user.referrer_id) {
             const { data: referrer } = await supabaseAdmin
               .from('users')
               .select('username, full_name')
               .eq('id', user.referrer_id)
               .single();
-
-            const userData = {
-              ...user,
-              referrer_name: referrer?.username || null,
-              wallet: wallet || null,
-              membership: membership || null,
-            };
-            
-            return userData;
+            referrer_name = referrer?.username || null;
           }
-          
-          const userData = {
+
+          // Commission is earned (and already paid into the wallet) the
+          // moment an order is submitted, even if it got left `Pending`
+          // under NEGATIVE_BALANCE_FLAG because it pushed the balance
+          // negative — so those still count as "today's earnings" too,
+          // not just orders that ended up `Completed`.
+          const { data: todayOrders, error: todayOrdersError } = await supabaseAdmin
+            .from('orders')
+            .select('commission')
+            .eq('user_id', user.id)
+            .or(`status.eq.Completed,and(status.eq.Pending,property_name.eq.${NEGATIVE_BALANCE_FLAG})`)
+            .gte('created_at', todayISO);
+
+          if (todayOrdersError) {
+            Logger.error('Failed to fetch today\'s orders for user in admin list', {
+              userId: user.id,
+              error: todayOrdersError,
+            });
+          }
+
+          const today_earnings = (todayOrders || []).reduce((sum, o) => sum + Number(o.commission), 0);
+
+          return {
             ...user,
-            referrer_name: null,
+            referrer_name,
             wallet: wallet || null,
             membership: membership || null,
+            today_earnings,
+            orders_today: (todayOrders || []).length,
           };
-          
-          return userData;
         })
       );
 
@@ -344,55 +430,53 @@ export class AdminService {
         }
       }
 
-      // Referrer update
-      if (updates.referrer_id !== undefined) {
-        updateData.referrer_id = updates.referrer_id;
+      // Referrer update — validate the referrer actually exists first;
+      // otherwise this silently fails as a generic 500 (a foreign key
+      // violation from the DB) instead of a clear, actionable error.
+      if (updates.referrer_id !== undefined && updates.referrer_id !== null && updates.referrer_id !== '') {
+        const referrerId = Number(updates.referrer_id);
+
+        if (isNaN(referrerId)) {
+          throw new AppError(400, 'Parent ID must be a number');
+        }
+
+        if (referrerId === Number(userId)) {
+          throw new AppError(400, 'A user cannot be their own parent/referrer');
+        }
+
+        const { data: referrer, error: referrerError } = await supabaseAdmin
+          .from('users')
+          .select('id')
+          .eq('id', referrerId)
+          .maybeSingle();
+
+        if (referrerError || !referrer) {
+          throw new AppError(400, `Parent ID ${referrerId} does not exist`);
+        }
+
+        updateData.referrer_id = referrerId;
       }
 
-      // Handle balance adjustment
+      // Handle balance adjustment — positive adds, negative subtracts (see
+      // adjustWalletBalance; this is the same helper applyDebit uses, so
+      // both admin tools that can move a balance behave identically).
+      let balanceResult: Awaited<ReturnType<typeof AdminService.adjustWalletBalance>> | null = null;
       if (updates.balance_adjustment !== undefined && updates.balance_adjustment !== '' && updates.balance_adjustment !== 0) {
         const adjustment = Number(updates.balance_adjustment);
-        
-        Logger.info('Processing balance adjustment', { userId, adjustment, rawValue: updates.balance_adjustment });
-        
+
         if (isNaN(adjustment)) {
           throw new AppError(400, 'Invalid balance adjustment value');
         }
 
-        // Get current wallet balance
-        const { data: wallet, error: walletError } = await supabaseAdmin
-          .from('wallets')
-          .select('balance')
-          .eq('user_id', userId)
-          .single();
-
-        if (walletError || !wallet) {
-          Logger.error('Wallet not found', { userId, error: walletError });
-          throw new AppError(404, 'User wallet not found');
-        }
-
-        const currentBalance = Number(wallet.balance);
-        const newBalance = currentBalance + adjustment;
-        
-        Logger.info('Balance calculation', { userId, currentBalance, adjustment, newBalance });
-
-        // Update wallet balance
-        const { error: updateBalanceError } = await supabaseAdmin
-          .from('wallets')
-          .update({ balance: newBalance })
-          .eq('user_id', userId);
-
-        if (updateBalanceError) {
-          Logger.error('Failed to update wallet balance', { userId, error: updateBalanceError });
-          throw new AppError(500, 'Failed to update wallet balance');
-        }
+        balanceResult = await this.adjustWalletBalance(userId, adjustment);
 
         Logger.info('Balance adjusted successfully', {
           userId,
           adminId,
           adjustment,
-          previousBalance: currentBalance,
-          newBalance,
+          previousBalance: balanceResult.previousBalance,
+          newBalance: balanceResult.newBalance,
+          resolvedOrderIds: balanceResult.resolvedOrderIds,
         });
       }
 
@@ -449,6 +533,15 @@ export class AdminService {
       return {
         user: updatedUser,
         changes: updateData,
+        wallet: balanceResult
+          ? {
+              previous_balance: balanceResult.previousBalance,
+              new_balance: balanceResult.newBalance,
+              previous_total_earned: balanceResult.previousTotalEarned,
+              new_total_earned: balanceResult.newTotalEarned,
+            }
+          : undefined,
+        resolved_order_ids: balanceResult?.resolvedOrderIds || [],
       };
     } catch (error) {
       if (error instanceof AppError) {
@@ -470,7 +563,7 @@ export class AdminService {
     notes?: string
   ) {
     try {
-      Logger.info('Admin applying debit', { userId, adminId, amount, reason });
+      Logger.info('Admin adjusting balance', { userId, adminId, amount, reason });
 
       // Validate user exists
       const { data: user, error: userError } = await supabaseAdmin
@@ -483,21 +576,8 @@ export class AdminService {
         throw new AppError(404, 'User not found');
       }
 
-      // Get current wallet balance
-      const { data: wallet, error: walletError } = await supabaseAdmin
-        .from('wallets')
-        .select('balance')
-        .eq('user_id', userId)
-        .single();
-
-      if (walletError || !wallet) {
-        throw new AppError(404, 'User wallet not found');
-      }
-
-      const currentBalance = Number(wallet.balance);
-      const newBalance = currentBalance - amount;
-
-      // Create debit log entry
+      // Create debit log entry (amount is stored exactly as submitted —
+      // positive adds, negative subtracts — matching adjustWalletBalance)
       const { data: debitLog, error: debitError } = await supabaseAdmin
         .from('debits_log')
         .insert({
@@ -514,32 +594,17 @@ export class AdminService {
         throw new AppError(500, 'Failed to apply debit');
       }
 
-      // Update wallet balance manually
-      const { error: walletUpdateError } = await supabaseAdmin
-        .from('wallets')
-        .update({ balance: newBalance })
-        .eq('user_id', userId);
+      const result = await this.adjustWalletBalance(userId, amount);
 
-      if (walletUpdateError) {
-        Logger.error('Failed to update wallet balance', { userId, error: walletUpdateError });
-        throw new AppError(500, 'Failed to update wallet balance');
-      }
-
-      // Fetch updated balance
-      const { data: updatedWallet } = await supabaseAdmin
-        .from('wallets')
-        .select('balance, updated_at')
-        .eq('user_id', userId)
-        .single();
-
-      Logger.info('Debit applied successfully', {
+      Logger.info('Balance adjustment applied successfully', {
         userId,
         username: user.username,
         adminId,
         amount,
-        previousBalance: currentBalance,
-        newBalance: updatedWallet?.balance || newBalance,
+        previousBalance: result.previousBalance,
+        newBalance: result.newBalance,
         debitLogId: debitLog.id,
+        resolvedOrderIds: result.resolvedOrderIds,
       });
 
       return {
@@ -550,10 +615,13 @@ export class AdminService {
           created_at: debitLog.created_at,
         },
         wallet: {
-          previous_balance: currentBalance,
-          new_balance: updatedWallet?.balance || newBalance,
+          previous_balance: result.previousBalance,
+          new_balance: result.newBalance,
+          previous_total_earned: result.previousTotalEarned,
+          new_total_earned: result.newTotalEarned,
           can_be_negative: true,
         },
+        resolved_order_ids: result.resolvedOrderIds,
       };
     } catch (error) {
       if (error instanceof AppError) {
@@ -828,13 +896,41 @@ export class AdminService {
       // Validate user exists
       const { data: user, error: userError } = await supabaseAdmin
         .from('users')
-        .select('id, username')
+        .select('id, username, total_orders, tier_id')
         .eq('id', userId)
         .single();
 
       if (userError || !user) {
         throw new AppError(404, 'User not found');
       }
+
+      // `orderNumber` is the user's absolute position within their current
+      // lot cycle (0 to the tier's order_limit, reset to 0 via
+      // resetUserOrders) — e.g. 8 means "after their 8th lot in this cycle,
+      // so the 9th is special". The trigger check in OrderService.generateLot
+      // fires once total_orders > trigger_after_order_no (a strict `<`), so
+      // we store orderNumber - 1: total_orders reaching 8 then satisfies
+      // `7 < 8`, on the generateLot call that produces the 9th lot.
+      //
+      // This must be an absolute position, not an offset from the user's
+      // current total_orders: since total_orders is capped at order_limit,
+      // adding it in would push the threshold past the cap whenever the user
+      // isn't at a fresh 0, making the special lot permanently unreachable.
+      const { data: tier } = await supabaseAdmin
+        .from('membership_levels')
+        .select('order_limit')
+        .eq('id', user.tier_id)
+        .single();
+
+      const orderLimit = tier?.order_limit || 27;
+      if (orderNumber >= orderLimit) {
+        throw new AppError(
+          400,
+          `"After order ${orderNumber}" is unreachable: this user's lot limit is ${orderLimit} per cycle. Choose a number below ${orderLimit}, or reset their count first if you need a fresh cycle to schedule against.`
+        );
+      }
+
+      const triggerAfterOrderNo = orderNumber - 1;
 
       // Validate special lot exists
       const { data: specialLot, error: lotError } = await supabaseAdmin
@@ -852,8 +948,8 @@ export class AdminService {
         throw new AppError(400, 'Special lot is not active');
       }
 
-      // Calculate daily commission (2.5% default for special lots)
-      const dailyCommission = (Number(specialLot.value) * 2.5) / 100;
+      // Calculate daily commission (27% default for special lots)
+      const dailyCommission = (Number(specialLot.value) * 27) / 100;
 
       // Insert into user_special_lots_queue
       const { data: queueEntry, error: insertError } = await supabaseAdmin
@@ -863,7 +959,7 @@ export class AdminService {
           special_lot_id: specialLotId,
           lot_value: specialLot.value,
           daily_commission: dailyCommission.toFixed(2),
-          trigger_after_order_no: orderNumber,
+          trigger_after_order_no: triggerAfterOrderNo,
           status: 'Pending',
         })
         .select('*')

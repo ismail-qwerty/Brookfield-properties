@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
+import { LoadingSpinner } from '../../components/ui';
 import ChatSupportDashboard from '../support/ChatSupportDashboard';
 
 export default function Support() {
@@ -27,6 +29,7 @@ function UserChatInterface() {
   const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const prevMessageCountRef = useRef(0);
 
   useEffect(() => {
     initChat();
@@ -43,7 +46,10 @@ function UserChatInterface() {
   }, [conversation?.id]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length > prevMessageCountRef.current) {
+      scrollToBottom();
+    }
+    prevMessageCountRef.current = messages.length;
   }, [messages]);
 
   const scrollToBottom = () => {
@@ -133,168 +139,183 @@ function UserChatInterface() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  const isActive = conversation?.status === 'InProgress';
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-b from-[#5DBDAE] to-[#7DCCC4] py-12">
-        <div className="max-w-4xl mx-auto px-6">
-          <h1 className="text-3xl font-bold text-white text-center">Customer Support</h1>
-          <p className="text-white text-center mt-2">We're here to help you 24/7</p>
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Minimal top bar — this route renders outside the main layout */}
+      <header className="bg-black flex-shrink-0">
+        <div className="wrap flex items-center justify-between h-20">
+          <Link to="/dashboard" className="font-serif text-[22px] text-white leading-tight">
+            Blackstone
+          </Link>
+          <Link to="/dashboard" className="text-[13px] tracking-wide text-white/60 hover:text-white transition-colors">
+            &larr; Back to Dashboard
+          </Link>
+        </div>
+      </header>
+
+      <div className="page-head flex-shrink-0">
+        <div className="wrap">
+          <div className="eyebrow-light mb-5">Help Center</div>
+          <h1 className="display text-white">Customer Support</h1>
+          <p className="lede-light mt-4 max-w-xl">
+            Our concierge team is on hand to help with your account, transactions and portfolio questions.
+          </p>
         </div>
       </div>
 
-      {/* Chat Container */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden" style={{ height: '600px' }}>
-          {/* Chat Header */}
-          <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold">Brookfield Properties Support</h3>
-                <p className="text-xs text-blue-100">
-                  {conversation?.status === 'InProgress' ? 'Agent responding...' : 'Online'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-              <span className="text-sm">Active</span>
-            </div>
-          </div>
-
-          {/* Messages Area */}
-          <div className="flex flex-col h-[460px]">
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.length === 0 ? (
-                <div className="text-center text-gray-400 py-12">
-                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-                  </svg>
-                  <p>Start a conversation with our support team</p>
-                </div>
-              ) : (
-                messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        msg.sender_id === user?.id
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-900'
-                      }`}
-                    >
-                      {msg.message_type === 'image' && msg.image_url ? (
-                        <>
-                          <img 
-                            src={msg.image_url} 
-                            alt="Shared image" 
-                            className="rounded max-w-full h-auto max-h-64 mb-2"
-                            onClick={() => window.open(msg.image_url, '_blank')}
-                            style={{ cursor: 'pointer' }}
-                          />
-                          {msg.message !== 'Sent an image' && (
-                            <p className="text-sm break-words">{msg.message}</p>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-sm break-words">{msg.message}</p>
-                      )}
-                      <p className={`text-xs mt-1 ${msg.sender_id === user?.id ? 'text-blue-100' : 'text-gray-500'}`}>
-                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : (
+        <div className="wrap section-tight">
+          <div className="grid lg:grid-cols-[1fr_280px] gap-10">
+            {/* Chat Panel */}
+            <div className="rounded-[20px] shadow-[0_20px_50px_-20px_rgba(0,0,0,0.25)] overflow-hidden flex flex-col" style={{ height: 600 }}>
+              <div className="bg-black text-white px-6 py-5 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                    <span className="font-serif text-[16px]">B</span>
                   </div>
-                ))
-              )}
-              <div ref={messagesEndRef} />
-            </div>
+                  <div>
+                    <p className="font-serif text-[16px] leading-tight">Blackstone Support</p>
+                    <p className="text-[12px] text-white/55 flex items-center gap-1.5 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                      {isActive ? 'Agent responding' : 'Online'}
+                    </p>
+                  </div>
+                </div>
+                <div className="hidden sm:flex items-center gap-1.5 text-[12px] text-white/55">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                  Active
+                </div>
+              </div>
 
-            {/* Message Input */}
-            <form onSubmit={handleSendMessage} className="border-t p-4">
-              {imagePreview && (
-                <div className="mb-3 relative inline-block">
-                  <img src={imagePreview} alt="Preview" className="max-h-32 rounded border" />
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 bg-[var(--paper-alt)]">
+                {messages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center px-6">
+                    <svg className="w-10 h-10 mb-3 text-[var(--ink-25)]" fill="none" stroke="currentColor" strokeWidth={1.25} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                    </svg>
+                    <p className="text-[14px] text-[var(--ink-45)]">Start a conversation with our support team</p>
+                  </div>
+                ) : (
+                  messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-xs lg:max-w-md px-4 py-3 text-[14px] leading-relaxed rounded-[16px] ${
+                          msg.sender_id === user?.id
+                            ? 'bg-black text-white rounded-br-[4px]'
+                            : 'bg-white text-black rounded-bl-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.1)]'
+                        }`}
+                      >
+                        {msg.message_type === 'image' && msg.image_url ? (
+                          <>
+                            <img
+                              src={msg.image_url}
+                              alt="Shared"
+                              className="max-w-full h-auto max-h-64 mb-2 cursor-pointer"
+                              onClick={() => window.open(msg.image_url, '_blank')}
+                            />
+                            {msg.message !== 'Sent an image' && (
+                              <p className="break-words">{msg.message}</p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="break-words">{msg.message}</p>
+                        )}
+                        <p className={`text-[11px] mt-1.5 tnum ${msg.sender_id === user?.id ? 'text-white/60' : 'text-[var(--ink-45)]'}`}>
+                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Message Input */}
+              <form onSubmit={handleSendMessage} className="border-t bg-white px-6 py-4 flex-shrink-0" style={{ borderColor: 'var(--rule)' }}>
+                {imagePreview && (
+                  <div className="mb-3 relative inline-block">
+                    <img src={imagePreview} alt="Preview" className="max-h-32 rounded-[10px] border" style={{ borderColor: 'var(--rule)' }} />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-black text-white rounded-full flex items-center justify-center hover:bg-[var(--ink-70)]"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    id="image-upload"
+                  />
                   <button
                     type="button"
-                    onClick={handleRemoveImage}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] disabled:opacity-50 transition-colors"
+                    disabled={sending || uploading}
+                    title="Attach image"
                   >
-                    ✕
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                    </svg>
+                  </button>
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type your message..."
+                    className="flex-1 px-4 py-3 rounded-full bg-[var(--paper-alt)] border border-transparent focus:outline-none focus:border-black focus:bg-white transition-colors text-[14px]"
+                    disabled={sending || uploading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending || uploading || (!newMessage.trim() && !selectedImage)}
+                    className="w-11 h-11 rounded-full bg-black text-white hover:bg-[var(--ink-70)] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0 transition-colors"
+                  >
+                    {uploading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6" />
+                      </svg>
+                    )}
                   </button>
                 </div>
-              )}
-              <div className="flex gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                  id="image-upload"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
-                  disabled={sending || uploading}
-                  title="Attach image"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type your message..."
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={sending || uploading}
-                />
-                <button
-                  type="submit"
-                  disabled={sending || uploading || (!newMessage.trim() && !selectedImage)}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {uploading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  ) : (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                    </svg>
-                  )}
-                  Send
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
+
+            {/* Sidebar */}
+            <aside>
+              <div className="eyebrow mb-6">Good To Know</div>
+              <ul className="space-y-5 text-[14px]" style={{ color: 'var(--ink-70)' }}>
+                <li className="pb-5 border-b" style={{ borderColor: 'var(--rule)' }}>
+                  Average response time is under 5 minutes during business hours.
+                </li>
+                <li className="pb-5 border-b" style={{ borderColor: 'var(--rule)' }}>
+                  Mention "URGENT" in your message if the matter is time-sensitive.
+                </li>
+                <li>
+                  Include your transaction ID for faster resolution.
+                </li>
+              </ul>
+            </aside>
           </div>
         </div>
-
-        {/* Help Info */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2">💡 Quick Help</h3>
-          <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Response time: Usually within 5 minutes</li>
-            <li>• For urgent issues, please mention "URGENT" in your message</li>
-            <li>• Include your transaction ID for faster resolution</li>
-          </ul>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

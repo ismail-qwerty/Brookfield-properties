@@ -5,6 +5,20 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 
 export class AuthController {
   /**
+   * @route   GET /api/v1/auth/check-username
+   * @desc    Check whether a username is available before submitting the
+   *          full registration form
+   * @access  Public
+   */
+  static checkUsername = asyncHandler(async (req: Request, res: Response) => {
+    const username = String(req.query.username || '');
+
+    const result = await AuthService.checkUsernameAvailable(username);
+
+    return ResponseUtil.success(res, result);
+  });
+
+  /**
    * @route   POST /api/v1/auth/register
    * @desc    Register new user with reference code validation
    * @access  Public

@@ -44,13 +44,8 @@ export class PropertyController {
    */
   static getPropertyById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const propertyId = parseInt(id);
 
-    if (isNaN(propertyId)) {
-      return ResponseUtil.error(res, 'Invalid property ID', 400);
-    }
-
-    const result = await PropertyService.getPropertyById(propertyId);
+    const result = await PropertyService.getPropertyById(id);
 
     return ResponseUtil.success(res, result);
   });
@@ -85,15 +80,10 @@ export class PropertyController {
    */
   static updateProperty = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const propertyId = parseInt(id);
-
-    if (isNaN(propertyId)) {
-      return ResponseUtil.error(res, 'Invalid property ID', 400);
-    }
 
     const { title, description, image_url, price, status } = req.body;
 
-    const result = await PropertyService.updateProperty(propertyId, {
+    const result = await PropertyService.updateProperty(id, {
       title,
       description,
       image_url,
@@ -116,15 +106,10 @@ export class PropertyController {
   static deleteProperty = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const { hard } = req.query;
-    const propertyId = parseInt(id);
-
-    if (isNaN(propertyId)) {
-      return ResponseUtil.error(res, 'Invalid property ID', 400);
-    }
 
     const hardDelete = hard === 'true';
 
-    const result = await PropertyService.deleteProperty(propertyId, hardDelete);
+    const result = await PropertyService.deleteProperty(id, hardDelete);
 
     return ResponseUtil.success(
       res,

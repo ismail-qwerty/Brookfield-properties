@@ -49,7 +49,7 @@ export default function Profile() {
 
   const quickAccessMenu = [
     { label: 'Profile', path: '/profile', icon: '1.webp' },
-    { label: 'Lots Optimization', path: '/data-optimization', icon: '2.webp' },
+    { label: 'Analyst Reviews', path: '/data-optimization', icon: '2.webp' },
     { label: 'History', path: '/history', icon: '3.webp' },
     { label: 'Bind Wallet', path: '/bind-wallet', icon: '4.webp' },
     { label: 'Recharge History', path: '/recharge-history', icon: '5.webp' },
@@ -65,164 +65,143 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f9fc] pt-24 pb-12">
-      <div className="container mx-auto px-4">
-        <div className="max-w-4xl mx-auto">
-          {/* Profile Header */}
-          <div className="bg-transparent mb-6">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6">
-              <div className="flex items-center gap-4">
-                <i className="fa fa-user-circle text-blue-600 text-6xl"></i>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{profile?.username || user?.username}</h2>
-                  <span className="inline-block mt-1 px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded">
-                    {profile?.membership?.name || 'Silver'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 flex items-center gap-2"
-                >
-                  <i className="fa fa-qrcode"></i>
-                  Invitation Code
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 flex items-center gap-2"
-                >
-                  <i className="fa fa-sign-out"></i>
-                  Logout
-                </button>
-              </div>
+    <div className="bg-white">
+      <div className="page-head">
+        <div className="wrap">
+          <div className="eyebrow-light mb-5">Account</div>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div>
+              <h1 className="display text-white mb-4">
+                {profile?.username || user?.username}
+              </h1>
+              <span className="inline-block px-3 py-1 border border-white/50 text-white text-[11px] uppercase tracking-widest">
+                {profile?.membership?.name || 'Silver'}
+              </span>
             </div>
-          </div>
-
-          {/* Stats Row */}
-          <div className="grid md:grid-cols-2 gap-4 mb-6">
-            <div className="bg-white rounded shadow p-6">
-              <div className="flex items-center gap-4">
-                <div className="text-blue-600"><i className="fa fa-wallet text-4xl"></i></div>
-                <div>
-                  <div className="text-gray-500 text-sm mb-1">Account Balance</div>
-                  <div className="text-2xl font-bold">${(profile?.wallet?.balance || 0).toFixed(2)}</div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded shadow p-6">
-              <div className="flex items-center gap-4">
-                <div className="text-blue-500"><i className="fa fa-line-chart text-4xl"></i></div>
-                <div>
-                  <div className="text-gray-500 text-sm mb-1">Today's Earnings</div>
-                  <div className="text-2xl font-bold">${(profile?.today_earnings || 0).toFixed(2)}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Credibility Progress */}
-          <div className="bg-white rounded shadow p-6 mb-6">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-gray-600">Credibility</span>
-              <span className="text-gray-600">{profile?.credibility || 100}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${profile?.credibility || 100}%` }}></div>
-            </div>
-          </div>
-
-          {/* Quick Access */}
-          <div className="bg-white rounded shadow p-6 mb-6">
-            <h5 className="font-bold mb-4"><i className="fa fa-th-large mr-2"></i>Quick Access</h5>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {quickAccessMenu.map((item, i) => (
-                <Link key={i} to={item.path} className="text-center block p-4 border rounded hover:bg-gray-50 transition">
-                  <div className="mb-2">
-                    <img src={`/${item.icon}`} alt={item.label} className="w-12 h-12 mx-auto object-contain" />
-                  </div>
-                  <small className="text-xs">{item.label}</small>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Logout Button */}
-          <div className="flex justify-center">
-            <div className="w-11/12">
-              <button
-                onClick={handleLogout}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded transition flex items-center justify-center gap-2"
-              >
-                <i className="fa fa-sign-out"></i>
-                Logout
+            <div className="flex flex-wrap gap-3">
+              <button onClick={() => setShowModal(true)} className="btn-on-dark">
+                Invitation Code
+              </button>
+              <button onClick={handleLogout} className="btn-on-dark">
+                Log out
               </button>
             </div>
           </div>
         </div>
       </div>
 
+      <div className="wrap section-tight">
+        {/* Metrics */}
+        <div className="grid sm:grid-cols-2 gap-10 pb-12 mb-12 border-b" style={{ borderColor: 'var(--rule)' }}>
+          <div>
+            <div className="stat-label">Account Balance</div>
+            <div className="stat-value">${(profile?.wallet?.balance || 0).toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="stat-label">Today&apos;s Earnings</div>
+            <div className="stat-value">${(profile?.today_earnings || 0).toFixed(2)}</div>
+          </div>
+        </div>
+
+        {/* Referrals */}
+        <div className="mb-16 pb-12 border-b" style={{ borderColor: 'var(--rule)' }}>
+          <div className="flex justify-between items-baseline mb-6">
+            <span className="eyebrow">Referral Program</span>
+            <button onClick={() => setShowModal(true)} className="text-[12px] underline" style={{ color: 'var(--ink-45)' }}>
+              Share your code
+            </button>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-10">
+            <div>
+              <div className="stat-label">Referral Bonus</div>
+              <div className="stat-value">15%</div>
+            </div>
+            <div>
+              <div className="stat-label">Members Referred</div>
+              <div className="stat-value">{profile?.referral_count || 0}</div>
+            </div>
+            <div>
+              <div className="stat-label">Referral Earnings</div>
+              <div className="stat-value">${(profile?.referral_earnings || 0).toFixed(2)}</div>
+            </div>
+          </div>
+          <p className="text-[12px] mt-6" style={{ color: 'var(--ink-45)' }}>
+            Earn 15% of the commission your invitees make on every completed analyst review, credited directly to your balance.
+          </p>
+        </div>
+
+        {/* Credibility */}
+        <div className="mb-16">
+          <div className="flex justify-between items-baseline mb-3">
+            <span className="eyebrow">Credibility</span>
+            <span className="text-[15px] tnum">{profile?.credibility || 100}%</span>
+          </div>
+          <div className="w-full h-px" style={{ background: 'var(--rule)' }}>
+            <div
+              className="h-px bg-black"
+              style={{ width: `${profile?.credibility || 100}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Quick access */}
+        <div>
+          <div className="eyebrow mb-6">Quick Access</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 border-t border-l" style={{ borderColor: 'var(--rule)' }}>
+            {quickAccessMenu.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className="flex flex-col items-center justify-center text-center gap-3 p-6 border-r border-b transition-colors hover:bg-[var(--paper-alt)]"
+                style={{ borderColor: 'var(--rule)' }}
+              >
+                <img
+                  src={`/${item.icon}`}
+                  alt=""
+                  aria-hidden="true"
+                  className="w-10 h-10 object-contain opacity-80"
+                />
+                <span className="text-[12px]" style={{ color: 'var(--ink-70)' }}>
+                  {item.label}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center p-4 border-b">
-              <h5 className="font-bold">Your Invitation Code</h5>
-              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-6"
+          onClick={() => setShowModal(false)}
+        >
+          <div className="bg-white max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-8 py-5 border-b" style={{ borderColor: 'var(--rule)' }}>
+              <span className="eyebrow">Invitation Code</span>
+              <button
+                onClick={() => setShowModal(false)}
+                aria-label="Close"
+                className="text-[var(--ink-45)] hover:text-black transition-colors"
+              >
                 <i className="fa fa-times"></i>
               </button>
             </div>
-            <div className="p-6 text-center">
-              <div className="w-48 h-48 mx-auto mb-4 bg-gray-200 rounded flex items-center justify-center">
-                <i className="fa fa-qrcode text-6xl text-gray-400"></i>
-              </div>
-              <h6 className="mb-2 font-semibold">Invitation Code</h6>
-              <p className="text-xl font-bold mb-4">{profile?.reference_code}</p>
-              <button
-                onClick={copyInviteCode}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded"
-              >
-                <i className="fa fa-copy mr-2"></i>Copy Invitation Code
+            <div className="px-8 py-10 text-center">
+              <p className="text-[13px] mb-6" style={{ color: 'var(--ink-45)' }}>
+                Share this code to invite others to the platform.
+              </p>
+              <p className="font-serif text-[32px] tracking-wide mb-8 tnum">
+                {profile?.reference_code}
+              </p>
+              <button onClick={copyInviteCode} className="btn-solid w-full">
+                Copy Code
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="bg-blue-600 text-white py-12 mt-12">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <h3 className="text-xl font-bold mb-4">Brookfield Properties</h3>
-              <p className="text-sm opacity-90">Trusted real estate & services. Manage your account, wallet and orders from your dashboard.</p>
-            </div>
-            <div>
-              <h5 className="font-bold mb-3">Helpful Links</h5>
-              <ul className="space-y-2 text-sm">
-                <li><Link to="/recharge" className="hover:underline"><i className="fa fa-angle-right mr-1"></i>Recharge</Link></li>
-                <li><Link to="/redemption" className="hover:underline"><i className="fa fa-angle-right mr-1"></i>Redeem</Link></li>
-                <li><Link to="/recharge-history" className="hover:underline"><i className="fa fa-angle-right mr-1"></i>Recharge History</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-3">Account</h5>
-              <ul className="space-y-2 text-sm">
-                <li><Link to="/dashboard" className="hover:underline"><i className="fa fa-angle-right mr-1"></i>Dashboard</Link></li>
-                <li><Link to="/data-optimization" className="hover:underline"><i className="fa fa-angle-right mr-1"></i>Generate Lots</Link></li>
-                <li><Link to="/profile" className="hover:underline"><i className="fa fa-angle-right mr-1"></i>Profile</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-3">Contact</h5>
-              <p className="text-sm">455 West Orchard Street<br />Kings Mountain, NC 28086<br />Phone: (272) 211-7370</p>
-            </div>
-          </div>
-          <div className="border-t border-white/20 mt-8 pt-6 text-center text-sm">
-            <p>© 2025 Brookfield Properties. All Rights Reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -31,7 +31,7 @@ export default function OrderList() {
     setLoading(true);
     try {
       const { data } = await api.admin.getProperties();
-      setProperties(data.properties || []);
+      setProperties(data.data?.properties || []);
     } catch (err) {
       console.error('Failed to fetch properties:', err);
     } finally {
@@ -268,7 +268,7 @@ export default function OrderList() {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEditProperty(property)}
-                          className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                          className="link-quiet text-[13px]"
                         >
                           Edit
                         </button>
@@ -307,7 +307,7 @@ export default function OrderList() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Property Title
                 </label>
                 <input
@@ -322,7 +322,7 @@ export default function OrderList() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Description
                 </label>
                 <textarea
@@ -337,7 +337,7 @@ export default function OrderList() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Image URL
                 </label>
                 <input
@@ -353,8 +353,8 @@ export default function OrderList() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Price (VIEWS)
+                  <label className="label">
+                    Price ($)
                   </label>
                   <input
                     type="number"
@@ -370,7 +370,7 @@ export default function OrderList() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="label">
                     Status
                   </label>
                   <select

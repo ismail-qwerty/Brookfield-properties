@@ -48,9 +48,9 @@ export const registerSchema = z.object({
   
   wallet_password: z
     .string()
-    .min(6, 'Wallet password must be at least 6 characters')
-    .max(128, 'Wallet password must not exceed 128 characters')
-    .regex(/[0-9]/, 'Wallet password must contain at least one number'),
+    .min(6, 'Withdrawal password must be at least 6 characters')
+    .max(128, 'Withdrawal password must not exceed 128 characters')
+    .regex(/[0-9]/, 'Withdrawal password must contain at least one number'),
   
   reference_code: z
     .string()
@@ -140,22 +140,22 @@ export const updatePasswordSchema = z.object({
 export const updateWalletPasswordSchema = z.object({
   current_wallet_password: z
     .string()
-    .min(6, 'Current wallet password must be at least 6 characters'),
+    .min(6, 'Current withdrawal password must be at least 6 characters'),
   
   new_wallet_password: z
     .string()
-    .min(6, 'New wallet password must be at least 6 characters')
-    .max(128, 'New wallet password must not exceed 128 characters')
-    .regex(/[0-9]/, 'New wallet password must contain at least one number'),
+    .min(6, 'New withdrawal password must be at least 6 characters')
+    .max(128, 'New withdrawal password must not exceed 128 characters')
+    .regex(/[0-9]/, 'New withdrawal password must contain at least one number'),
   
   confirm_new_wallet_password: z
     .string()
-    .min(6, 'Confirm new wallet password must be at least 6 characters'),
+    .min(6, 'Confirm new withdrawal password must be at least 6 characters'),
 }).refine((data) => data.new_wallet_password === data.confirm_new_wallet_password, {
-  message: 'New wallet passwords do not match',
+  message: 'New withdrawal passwords do not match',
   path: ['confirm_new_wallet_password'],
 }).refine((data) => data.current_wallet_password !== data.new_wallet_password, {
-  message: 'New wallet password must be different from current wallet password',
+  message: 'New withdrawal password must be different from current withdrawal password',
   path: ['new_wallet_password'],
 });
 
@@ -169,8 +169,8 @@ export const rechargeRequestSchema = z.object({
   amount: z
     .number()
     .positive('Amount must be positive')
-    .min(10, 'Minimum recharge amount is VIEWS 10.00')
-    .max(10000, 'Maximum recharge amount is VIEWS 10,000.00')
+    .min(10, 'Minimum recharge amount is $10.00')
+    .max(10000, 'Maximum recharge amount is $10,000.00')
     .multipleOf(0.01, 'Amount can have at most 2 decimal places'),
   
   transaction_reference: z
@@ -201,9 +201,9 @@ export const redemptionRequestSchema = z.object({
   
   wallet_password: z
     .string()
-    .min(6, 'Wallet password is required for redemption'),
+    .min(6, 'Withdrawal password is required for redemption'),
 }).refine((data) => data.amount >= 50, {
-  message: 'Minimum withdrawal amount is VIEWS 50.00 (this will be validated against user-specific min_withdrawal)',
+  message: 'Minimum withdrawal amount is $50.00 (this will be validated against user-specific min_withdrawal)',
   path: ['amount'],
 });
 
@@ -233,7 +233,7 @@ export const bindWalletSchema = z.object({
   
   wallet_password: z
     .string()
-    .min(6, 'Wallet password is required to bind wallet address'),
+    .min(6, 'Withdrawal password is required to bind wallet address'),
 });
 
 export const updateWalletBindingSchema = z.object({
@@ -243,7 +243,7 @@ export const updateWalletBindingSchema = z.object({
   
   wallet_password: z
     .string()
-    .min(6, 'Wallet password is required to update wallet binding'),
+    .min(6, 'Withdrawal password is required to update wallet binding'),
 });
 
 /**
@@ -268,10 +268,12 @@ export const assignOrdersSchema = z.object({
 });
 
 export const applyDebitSchema = z.object({
+  // Positive = debit (subtract from balance), negative = credit (add to
+  // balance) — see AdminService.applyDebit.
   amount: z
     .number()
-    .positive('Debit amount must be positive')
-    .multipleOf(0.01, 'Amount can have at most 2 decimal places'),
+    .multipleOf(0.01, 'Amount can have at most 2 decimal places')
+    .refine((val) => val !== 0, 'Amount cannot be zero'),
   
   reason: z
     .string()
@@ -428,8 +430,8 @@ export const createPropertySchema = z.object({
   price: z
     .number()
     .positive('Price must be positive')
-    .min(1, 'Minimum property price is VIEWS 1.00')
-    .max(10000, 'Maximum property price is VIEWS 10,000.00')
+    .min(1, 'Minimum property price is $1.00')
+    .max(10000, 'Maximum property price is $10,000.00')
     .multipleOf(0.01, 'Price can have at most 2 decimal places'),
   
   status: z
@@ -464,8 +466,8 @@ export const updatePropertySchema = z.object({
   price: z
     .number()
     .positive('Price must be positive')
-    .min(1, 'Minimum property price is VIEWS 1.00')
-    .max(10000, 'Maximum property price is VIEWS 10,000.00')
+    .min(1, 'Minimum property price is $1.00')
+    .max(10000, 'Maximum property price is $10,000.00')
     .multipleOf(0.01, 'Price can have at most 2 decimal places')
     .optional(),
   

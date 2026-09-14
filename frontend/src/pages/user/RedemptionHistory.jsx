@@ -24,28 +24,28 @@ export default function RedemptionHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="bg-white">
       {/* Header Section */}
-      <div className="bg-gradient-to-b from-[#5DBDAE] to-[#7DCCC4] py-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <h1 className="text-4xl font-bold text-white text-center mb-4">Redemption History</h1>
-          <div className="flex items-center justify-center gap-2 text-white text-sm">
-            <Link to="/dashboard" className="hover:underline">Dashboard</Link>
-            <span>|</span>
-            <span>Redemption History</span>
+      <div className="page-head">
+        <div className="wrap">
+          <div className="flex items-center gap-3 text-[12px] text-white/50 mb-5">
+            <Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
+            <span>/</span>
+            <span className="text-white/80">Redemption History</span>
           </div>
+          <h1 className="display text-white">Redemption History</h1>
         </div>
       </div>
 
       {/* Content Section */}
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="wrap section-tight">
         <h2 className="text-2xl font-semibold text-gray-700 mb-6">
           Recent Redemptions - {user?.username}
         </h2>
 
         {loading ? (
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b border-black"></div>
           </div>
         ) : redemptions.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
@@ -58,7 +58,7 @@ export default function RedemptionHistory() {
                 <tr>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">#</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Amount (VIEWS)</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Amount ($)</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Wallet Address</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
                 </tr>
@@ -80,10 +80,10 @@ export default function RedemptionHistory() {
                       <span
                         className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
                           redemption.status === 'Approved'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-black text-white'
                             : redemption.status === 'Pending'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-white text-black border border-black'
+                            : 'bg-gray-100 text-gray-500 border border-gray-300'
                         }`}
                       >
                         {redemption.status}
@@ -97,25 +97,6 @@ export default function RedemptionHistory() {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="bg-[#5DBDAE] mt-20 py-8">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-3 gap-8 text-white">
-            <div>
-              <h3 className="text-xl font-bold mb-4">BROOKFIELD<br/>PROPERTIES</h3>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Helpful Links</h4>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Account</h4>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Contact</h4>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

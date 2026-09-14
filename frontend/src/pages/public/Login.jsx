@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LoadingSpinner } from '../../components/ui';
+import { LoadingSpinner, BrandLogo } from '../../components/ui';
 
 export default function Login() {
   const STATIC_URL = import.meta.env.VITE_STATIC_URL || '/static';
@@ -41,103 +41,123 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden">
-      {/* Background Video Layer */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="auto"
-        className="absolute top-0 left-0 w-full h-full object-cover z-0"
-      >
-        <source src={`${STATIC_URL}/bg.mp4`} type="video/mp4" />
-      </video>
-      
-      {/* Dark Overlay */}
-      <div className="absolute top-0 left-0 w-full h-full bg-black/60 z-10"></div>
-      
-      {/* Content Layer */}
-      <div className="relative z-20 min-h-screen flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome Back
-            </h1>
-            <p className="text-gray-600">Sign in to your account</p>
+    <div className="min-h-screen grid lg:grid-cols-2">
+      {/* Editorial panel — carries the brand while the form stays uncluttered */}
+      <div className="relative hidden lg:block overflow-hidden bg-black">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-cover opacity-55"
+        >
+          <source src={`${STATIC_URL}/bg.mp4`} type="video/mp4" />
+        </video>
+
+        <div className="relative z-10 h-full flex flex-col justify-between p-14">
+          <Link to="/" className="inline-flex">
+            <BrandLogo textClassName="text-[16px]" />
+          </Link>
+
+          <div className="max-w-md">
+            <h2 className="font-serif text-white text-[44px] leading-[1.05] mb-6">
+              Built on discipline and long-term thinking.
+            </h2>
+            <p className="lede-light">
+              Managing real estate portfolios with transparency, rigour and a
+              focus on durable returns.
+            </p>
+          </div>
+
+          <p className="text-white/40 text-[12px]">
+            &copy; {new Date().getFullYear()} Blackstone
+          </p>
+        </div>
+      </div>
+
+      {/* Form panel */}
+      <div className="flex items-center justify-center px-6 py-16 md:px-16">
+        <div className="w-full max-w-[420px]">
+          <Link to="/" className="lg:hidden inline-flex mb-14">
+            <BrandLogo dark textClassName="text-[16px]" />
+          </Link>
+
+          <div className="mb-12">
+            <div className="eyebrow mb-4">Client Access</div>
+            <h1 className="font-serif text-[38px] leading-tight mb-3">Welcome back</h1>
+            <p className="text-[15px]" style={{ color: 'var(--ink-45)' }}>
+              Sign in to manage your portfolio.
+            </p>
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="mb-8 border-l-2 border-red-600 bg-red-50 px-4 py-3 text-red-800 text-[14px]">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-8">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Username
-              </label>
+              <label className="label">Gmail or Username</label>
               <input
                 type="text"
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Enter your username"
+                className="field"
+                placeholder="you@gmail.com"
                 required
                 disabled={loading}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
+              <label className="label">Password</label>
               <input
                 type="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="field"
                 placeholder="Enter your password"
                 required
                 disabled={loading}
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center cursor-pointer">
+            <div className="flex items-center justify-between pt-2">
+              <label className="flex items-center cursor-pointer select-none">
                 <input
                   type="checkbox"
                   name="rememberMe"
                   checked={formData.rememberMe}
                   onChange={handleChange}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  className="w-4 h-4 accent-black border-gray-400"
                   disabled={loading}
                 />
-                <span className="ml-2 text-sm text-gray-600">Remember Me</span>
+                <span className="ml-3 text-[13px]" style={{ color: 'var(--ink-70)' }}>
+                  Remember me
+                </span>
               </label>
-              <Link to="#" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-                Forgot Password?
+              <Link to="#" className="link-quiet text-[13px]">
+                Forgot password?
               </Link>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            >
+            <button type="submit" disabled={loading} className="btn-solid w-full">
               {loading ? <LoadingSpinner size="sm" color="white" /> : 'Sign In'}
             </button>
           </form>
 
-          <p className="text-center mt-8 text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/user-register" className="text-primary-600 font-semibold hover:text-primary-700">
-              Register Now
-            </Link>
-          </p>
+          <div className="rule mt-12 pt-8">
+            <p className="text-[14px]" style={{ color: 'var(--ink-45)' }}>
+              Don&apos;t have an account?{' '}
+              <Link to="/user-register" className="link-quiet" style={{ color: 'var(--ink)' }}>
+                Register
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

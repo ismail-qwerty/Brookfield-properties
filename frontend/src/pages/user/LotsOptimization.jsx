@@ -29,17 +29,9 @@ export default function LotsOptimization() {
   return (
     <div className="min-h-screen bg-white">
       {/* Navbar - Same as Dashboard */}
-      <nav className="bg-white shadow-sm py-4">
-        <div className="container mx-auto px-4 flex items-center justify-between">
-          <img src="/BR logo.webp" alt="BR Logo" className="h-12" />
-          <Link to="/support" className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">
-            Contact Support
-          </Link>
-        </div>
-      </nav>
-      <div className="bg-gradient-to-r from-teal-600 to-teal-400 text-white p-6">
+      <div className="bg-black text-white p-6">
         <h1 className="text-2xl font-bold">Membership Upgrade</h1>
-        <p className="text-teal-50 mt-1">Unlock higher earning potential with premium tiers</p>
+        <p className="text-gray-300 mt-1">Unlock higher earning potential with premium tiers</p>
       </div>
 
       <div className="max-w-6xl mx-auto p-6">
@@ -64,7 +56,7 @@ export default function LotsOptimization() {
                 key={tier.id}
                 className={`rounded-lg shadow-lg p-6 border-2 ${
                   isCurrent
-                    ? 'border-teal-500 bg-teal-50'
+                    ? 'border-black bg-gray-100'
                     : isHigher
                     ? 'border-gray-200 bg-white'
                     : 'border-gray-200 bg-gray-50'
@@ -73,7 +65,7 @@ export default function LotsOptimization() {
                 <div className="text-center mb-4">
                   <TierBadge tier={tier.name} large />
                   {isCurrent && (
-                    <span className="inline-block mt-2 px-3 py-1 bg-teal-600 text-white text-xs rounded-full">
+                    <span className="inline-block mt-2 px-3 py-1 bg-black text-white text-xs rounded-full">
                       Current Tier
                     </span>
                   )}
@@ -86,7 +78,7 @@ export default function LotsOptimization() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Commission Rate:</span>
-                    <span className="font-semibold text-teal-600">{tier.commission_rate}%</span>
+                    <span className="font-semibold text-black">{tier.commission_rate}%</span>
                   </div>
                 </div>
 
@@ -94,7 +86,7 @@ export default function LotsOptimization() {
                   disabled={!isHigher}
                   className={`w-full py-3 rounded-lg font-medium ${
                     isHigher
-                      ? 'bg-teal-600 text-white hover:bg-teal-700'
+                      ? 'bg-black text-white hover:bg-primary-700'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
                 >
@@ -105,9 +97,9 @@ export default function LotsOptimization() {
           })}
         </div>
 
-        <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <h3 className="font-medium text-yellow-800 mb-2">📌 Upgrade Information</h3>
-          <p className="text-sm text-yellow-700">
+        <div className="mt-8 bg-gray-100 border border-gray-300 p-6">
+          <h3 className="font-medium text-black mb-2">📌 Upgrade Information</h3>
+          <p className="text-sm text-gray-700">
             To upgrade your membership tier, please contact customer support. Upgrades may require
             account verification and minimum balance requirements.
           </p>

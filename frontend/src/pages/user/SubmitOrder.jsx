@@ -49,15 +49,15 @@ export default function SubmitOrder() {
 
     setSubmitting(true);
     setError('');
-    
+
     try {
       await api.user.submitOrder(orderData.order.id, { review: selectedReview });
-      
+
       // Navigate back to data optimization page
-      navigate('/data-optimization', { 
-        state: { 
+      navigate('/data-optimization', {
+        state: {
           success: true,
-          message: `Order completed! You earned VIEWS ${orderData.order.commission.toFixed(2)}`
+          message: `Order completed! You earned $${orderData.order.commission.toFixed(2)}`
         }
       });
     } catch (err) {
@@ -80,8 +80,8 @@ export default function SubmitOrder() {
           <div className="flex gap-6 mb-8">
             {/* Small Property Image */}
             <div className="flex-shrink-0">
-              <img 
-                src={orderData.order.property.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800'} 
+              <img
+                src={orderData.order.property.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800'}
                 alt={orderData.order.property.title}
                 className="w-48 h-48 rounded-xl shadow-md object-cover"
               />
@@ -103,7 +103,7 @@ export default function SubmitOrder() {
 
               {/* Property Description Text */}
               <p className="text-gray-600 text-sm leading-relaxed">
-                Premium property located in a prime area with excellent amenities and modern facilities. 
+                Premium property located in a prime area with excellent amenities and modern facilities.
                 This investment opportunity offers outstanding value with strong potential returns.
               </p>
             </div>
@@ -120,7 +120,7 @@ export default function SubmitOrder() {
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <i className="fa fa-dollar text-teal-600 text-xl"></i>
+                    <i className="fa fa-dollar text-black text-xl"></i>
                     <span className="text-gray-600 text-sm">Price</span>
                   </div>
                   <div className="text-2xl font-bold text-gray-900">
@@ -128,9 +128,9 @@ export default function SubmitOrder() {
                   </div>
                 </div>
 
-                <div className="bg-yellow-50 rounded-lg p-4">
+                <div className="bg-gray-100 p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <i className="fa fa-coins text-yellow-600 text-xl"></i>
+                    <i className="fa fa-coins text-black text-xl"></i>
                     <span className="text-gray-600 text-sm">Profit</span>
                   </div>
                   <div className="text-2xl font-bold text-gray-900">

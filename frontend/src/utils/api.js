@@ -74,6 +74,7 @@ const api = {
   auth: {
     register: (data) => apiClient.post('/auth/register', data),
     login: (data) => apiClient.post('/auth/login', data),
+    checkUsername: (username) => apiClient.get('/auth/check-username', { params: { username } }),
   },
 
   // User endpoints

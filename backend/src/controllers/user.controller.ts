@@ -21,4 +21,21 @@ export class UserController {
 
     return ResponseUtil.success(res, result);
   });
+
+  /**
+   * @route   GET /api/v1/users/wallet
+   * @desc    Get wallet balance and transaction summary
+   * @access  Private
+   */
+  static getWallet = asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      return ResponseUtil.unauthorized(res, 'Authentication required');
+    }
+
+    const result = await UserService.getWallet(user.id);
+
+    return ResponseUtil.success(res, result);
+  });
 }

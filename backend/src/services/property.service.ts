@@ -23,12 +23,16 @@ export class PropertyService {
         query = query.eq('status', capitalizedStatus);
       }
 
-      // Apply price range filters
+      // Apply price range filters. The real price lives in the `value`
+      // column — `price` is a legacy column that's always null; every
+      // other part of the app (order generation, commission calculation)
+      // already reads `value`, so this admin tool now does too instead of
+      // silently matching nothing.
       if (filters?.min_price) {
-        query = query.gte('price', filters.min_price);
+        query = query.gte('value', filters.min_price);
       }
       if (filters?.max_price) {
-        query = query.lte('price', filters.max_price);
+        query = query.lte('value', filters.max_price);
       }
 
       // Apply search filter
@@ -46,7 +50,15 @@ export class PropertyService {
       }
 
       return {
-        properties: properties || [],
+        // `price` is presented to the admin UI as the property's price, but
+        // is sourced from `value` (see the comment on the filters above).
+        // Likewise `title` is what the admin UI edits, but many existing
+        // properties only ever had `name` set (the column order generation
+        // actually reads) — fall back to it so the admin's Title field
+        // isn't blank for them, which was blocking edits entirely (an
+        // empty required field fails native form validation before the
+        // request is even sent).
+        properties: (properties || []).map((p) => ({ ...p, price: p.value, title: p.title || p.name })),
         pagination: {
           page,
           limit,
@@ -66,7 +78,7 @@ export class PropertyService {
   /**
    * Get single property by ID
    */
-  static async getPropertyById(propertyId: number) {
+  static async getPropertyById(propertyId: string) {
     try {
       const { data: property, error } = await supabaseAdmin
         .from('properties')
@@ -93,6 +105,8 @@ export class PropertyService {
 
       return {
         ...property,
+        price: property.value,
+        title: property.title || property.name,
         usage_stats: {
           total_assignments: assignmentCount || 0,
           completed_tasks: completedCount || 0,
@@ -129,9 +143,18 @@ export class PropertyService {
         .from('properties')
         .insert({
           title: propertyData.title.trim(),
+          // `name` is a separate legacy column that order generation
+          // actually reads for display (see OrderService.generateLot) —
+          // every existing property keeps it in sync with `title`, so new
+          // ones need to as well or they'd show as generic "Property
+          // Listing" to users instead of their real title.
+          name: propertyData.title.trim(),
           description: propertyData.description.trim(),
           image_url: propertyData.image_url.trim(),
-          price: propertyData.price,
+          // `price` is presented to the admin UI, but `value` is the
+          // column every other part of the app actually reads for order
+          // generation and commission calculation.
+          value: propertyData.price,
           status,
         })
         .select('*')
@@ -145,10 +168,10 @@ export class PropertyService {
       Logger.info('Property created successfully', {
         propertyId: newProperty.id,
         title: newProperty.title,
-        price: newProperty.price,
+        price: newProperty.value,
       });
 
-      return newProperty;
+      return { ...newProperty, price: newProperty.value };
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
@@ -162,7 +185,7 @@ export class PropertyService {
    * Update property
    */
   static async updateProperty(
-    propertyId: number,
+    propertyId: string,
     updates: {
       title?: string;
       description?: string;
@@ -190,6 +213,8 @@ export class PropertyService {
 
       if (updates.title !== undefined) {
         updateData.title = updates.title.trim();
+        // Keep the legacy `name` column in sync — see createProperty.
+        updateData.name = updates.title.trim();
       }
 
       if (updates.description !== undefined) {
@@ -201,7 +226,9 @@ export class PropertyService {
       }
 
       if (updates.price !== undefined) {
-        updateData.price = updates.price;
+        // `value` is the column every other part of the app reads — see
+        // createProperty.
+        updateData.value = updates.price;
       }
 
       if (updates.status !== undefined) {
@@ -239,7 +266,7 @@ export class PropertyService {
       });
 
       return {
-        property: updatedProperty,
+        property: { ...updatedProperty, price: updatedProperty.value },
         changes: updateData,
       };
     } catch (error) {
@@ -254,7 +281,7 @@ export class PropertyService {
   /**
    * Delete property (soft delete by setting status to Inactive)
    */
-  static async deleteProperty(propertyId: number, hardDelete: boolean = false) {
+  static async deleteProperty(propertyId: string, hardDelete: boolean = false) {
     try {
       Logger.info('Deleting property', { propertyId, hardDelete });
 
@@ -358,13 +385,14 @@ export class PropertyService {
         .select('id', { count: 'exact', head: true })
         .eq('status', 'Inactive');
 
-      // Get price statistics
+      // Get price statistics (from `value` — see the comment in
+      // getAllProperties on why `price` isn't the real column)
       const { data: priceStats } = await supabaseAdmin
         .from('properties')
-        .select('price')
+        .select('value')
         .eq('status', 'Active');
 
-      const prices = priceStats?.map((p) => Number(p.price)) || [];
+      const prices = priceStats?.map((p) => Number(p.value)) || [];
       const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
       const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
       const avgPrice = prices.length > 0 

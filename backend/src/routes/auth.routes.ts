@@ -6,6 +6,14 @@ import { registerSchema, loginSchema } from '../middleware/validation.schemas.js
 const router = Router();
 
 /**
+ * @route   GET /api/v1/auth/check-username
+ * @desc    Check whether a username is already taken
+ * @access  Public
+ * @query   username
+ */
+router.get('/check-username', AuthController.checkUsername);
+
+/**
  * @route   POST /api/v1/auth/register
  * @desc    Register a new user with reference code validation
  * @access  Public

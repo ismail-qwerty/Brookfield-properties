@@ -36,115 +36,111 @@ export default function History() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navbar - Same as Dashboard */}
-      <nav className="bg-white shadow-sm py-4">
-        <div className="container mx-auto px-4 flex items-center justify-between">
-          <img src="/BR logo.webp" alt="BR Logo" className="h-12" />
-          <button onClick={() => window.dispatchEvent(new Event('open-chat-widget'))} className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">
-            Contact Support
-          </button>
-        </div>
-      </nav>
-
-      {/* Filter Tabs */}
-      <div className="border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex">
-            {filters.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`py-4 px-8 font-medium transition-colors relative ${
-                  activeFilter === filter
-                    ? 'text-blue-600'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                {filter}
-                {activeFilter === filter && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
-                )}
-              </button>
-            ))}
-          </div>
+    <div className="bg-white">
+      <div className="page-head">
+        <div className="wrap">
+          <div className="eyebrow-light mb-5">Activity</div>
+          <h1 className="display text-white">Order History</h1>
         </div>
       </div>
 
-      {/* Orders List */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="wrap section-tight">
+        {/* Filters */}
+        <div className="flex gap-8 border-b mb-2" style={{ borderColor: 'var(--rule)' }}>
+          {filters.map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setActiveFilter(filter)}
+              className={`relative py-4 text-[13px] uppercase tracking-wider transition-colors ${
+                activeFilter === filter
+                  ? 'text-black after:absolute after:left-0 after:bottom-[-1px] after:h-[2px] after:w-full after:bg-black'
+                  : 'text-[var(--ink-25)] hover:text-black'
+              }`}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="py-24 text-center">
+            <div className="inline-block animate-spin rounded-full h-6 w-6 border-b border-black"></div>
           </div>
         ) : orders.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">No tasks found</div>
+          <div className="py-24 text-center">
+            <p className="text-[15px] mb-6" style={{ color: 'var(--ink-45)' }}>
+              No orders in this category yet.
+            </p>
+            <Link to="/data-optimization" className="btn-outline">
+              Generate Analyst Reviews
+            </Link>
+          </div>
         ) : (
-          <div className="space-y-4">
+          <ul>
             {orders.map((order) => (
-              <div
+              <li
                 key={order.id}
-                className="bg-white border-b border-gray-100 pb-6 flex items-start gap-4"
+                className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-8 items-start py-8 border-b"
+                style={{ borderColor: 'var(--rule)' }}
               >
-                {/* Date */}
-                <div className="text-sm text-gray-400 w-24 pt-2">
+                <div className="md:col-span-2 text-[12px] tnum" style={{ color: 'var(--ink-45)' }}>
                   {formatDate(order.created_at)}
                 </div>
 
-                {/* Property Image */}
-                <img
-                  src={order.properties?.image_url || '/placeholder.jpg'}
-                  alt={order.properties?.name}
-                  className="w-16 h-16 rounded object-cover"
-                  onError={(e) => {
-                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23e5e7eb" width="64" height="64"/%3E%3C/svg%3E';
-                  }}
-                />
+                <div className="md:col-span-1">
+                  <img
+                    src={order.properties?.image_url || '/placeholder.jpg'}
+                    alt=""
+                    className="w-14 h-14 object-cover"
+                    onError={(e) => {
+                      e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23e5e7eb" width="64" height="64"/%3E%3C/svg%3E';
+                    }}
+                  />
+                </div>
 
-                {/* Property Details */}
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1">
+                <div className="md:col-span-5">
+                  <h3 className="text-[18px] mb-2">
                     {order.properties?.name || 'Property'}
                   </h3>
-                  <p className="text-sm text-gray-600 mb-2">
-                    VIEWS {parseFloat(order.properties?.value || 0).toFixed(2)}
-                  </p>
-                  <div className="flex text-yellow-400 text-sm">
-                    {'★★★★★'}
-                  </div>
-                  <div className="mt-3 flex gap-16">
-                    <div>
-                      <p className="text-xs text-gray-400">Total Amount</p>
-                      <p className="text-sm font-semibold text-blue-600">
-                        VIEWS {parseFloat(order.properties?.value || 0).toFixed(2)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400">Commission</p>
-                      <p className="text-sm font-semibold text-blue-600">
-                        VIEWS {parseFloat(order.commission || 0).toFixed(2)}
-                      </p>
-                    </div>
+                  <div className="text-[12px] tracking-widest" style={{ color: 'var(--ink-25)' }}>
+                    ★★★★★
                   </div>
                 </div>
 
-                {/* Status Badge */}
-                <div className="pt-2">
+                <div className="md:col-span-2">
+                  <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
+                    Amount
+                  </div>
+                  <div className="text-[15px] tnum">
+                    {parseFloat(order.properties?.value || 0).toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="md:col-span-1">
+                  <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
+                    Comm.
+                  </div>
+                  <div className="text-[15px] tnum">
+                    {parseFloat(order.commission || 0).toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="md:col-span-1 md:text-right">
                   <span
-                    className={`inline-block px-4 py-1 rounded-full text-xs font-semibold ${
+                    className={`inline-block px-3 py-1 text-[11px] tracking-wide border ${
                       order.status === 'Completed'
-                        ? 'bg-green-500 text-white'
+                        ? 'bg-black text-white border-black'
                         : order.status === 'Pending'
-                        ? 'bg-yellow-500 text-white'
-                        : 'bg-red-500 text-white'
+                        ? 'bg-white text-black border-black'
+                        : 'bg-gray-100 text-gray-500 border-gray-300'
                     }`}
                   >
                     {order.status}
                   </span>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </div>

@@ -6,3 +6,4 @@ export { default as StatCard } from './StatCard';
 export { default as StarRating } from './StarRating';
 export { default as EmptyState } from './EmptyState';
 export { default as LoadingSpinner } from './LoadingSpinner';
+export { default as BrandLogo } from './BrandLogo';

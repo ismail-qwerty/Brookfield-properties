@@ -19,12 +19,14 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchUsers();
-    
-    // Auto-refresh every 30 seconds to show real-time data
+
+    // Auto-refresh every 30 seconds to show real-time data. Pass
+    // isBackgroundRefresh so this doesn't toggle the loading spinner and
+    // blank out the whole table every cycle — only the values update.
     const interval = setInterval(() => {
-      fetchUsers();
+      fetchUsers(true);
     }, 30000);
-    
+
     return () => clearInterval(interval);
   }, [currentPage]);
 
@@ -46,8 +48,8 @@ export default function AdminDashboard() {
     };
   }, [openDropdown]);
 
-  const fetchUsers = async () => {
-    setLoading(true);
+  const fetchUsers = async (isBackgroundRefresh = false) => {
+    if (!isBackgroundRefresh) setLoading(true);
     try {
       const response = await api.admin.getUsers({ page: currentPage, limit: 10 });
       const fetchedUsers = response.data.data.users || [];
@@ -57,7 +59,7 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Failed to fetch users:', err);
     } finally {
-      setLoading(false);
+      if (!isBackgroundRefresh) setLoading(false);
     }
   };
 
@@ -76,28 +78,35 @@ export default function AdminDashboard() {
 
   const handleAddDebit = async () => {
     if (!selectedUser || !debitAmount) {
-      alert('Please enter a debit amount');
+      alert('Please enter an amount');
       return;
     }
 
-    if (parseFloat(debitAmount) <= 0) {
-      alert('Debit amount must be greater than 0');
+    const amount = parseFloat(debitAmount);
+    if (isNaN(amount) || amount === 0) {
+      alert('Please enter a non-zero amount');
       return;
     }
 
     try {
-      await api.admin.applyDebit(selectedUser.id, {
-        amount: parseFloat(debitAmount),
-        reason: debitReason || 'Manual debit by admin',
+      const { data } = await api.admin.applyDebit(selectedUser.id, {
+        amount,
+        reason: debitReason || (amount > 0 ? 'Manual credit by admin' : 'Manual debit by admin'),
       });
-      alert(`Debit of VIEWS ${parseFloat(debitAmount).toFixed(2)} applied successfully!`);
+      const resolvedCount = data?.data?.resolved_order_ids?.length || 0;
+      const direction = amount > 0 ? 'Credit' : 'Debit';
+      let message = `${direction} of $${Math.abs(amount).toFixed(2)} applied successfully!`;
+      if (resolvedCount > 0) {
+        message += ` ${resolvedCount} pending order(s) were completed now that the balance is no longer negative.`;
+      }
+      alert(message);
       setShowDebitModal(false);
       setDebitAmount('');
       setDebitReason('');
       setSelectedUser(null);
       await fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to apply debit');
+      alert(err.response?.data?.error || 'Failed to apply balance adjustment');
     }
   };
 
@@ -210,15 +219,15 @@ export default function AdminDashboard() {
                       <td className="px-4 py-3 text-sm">
                         <CurrencyDisplay
                           amount={user.wallet?.balance || 0}
-                          className={(user.wallet?.balance || 0) < 0 ? 'text-red-600' : 'text-primary-600'}
+                          className={(user.wallet?.balance || 0) < 0 ? 'text-black font-semibold' : 'text-primary-600'}
                         />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
-                        {(user.membership?.order_limit || 35) - (user.orders_today || 0)}
+                        {Math.max(0, (user.membership?.order_limit || 27) - (user.total_orders || 0))}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{user.total_orders || 0}</td>
                       <td className="px-4 py-3 text-sm">
-                        <CurrencyDisplay amount={user.wallet?.total_earned || 0} className="text-green-600" />
+                        <CurrencyDisplay amount={user.today_earnings || 0} className="text-black" />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{user.credibility}%</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{user.referrer?.username || '-'}</td>
@@ -240,7 +249,7 @@ export default function AdminDashboard() {
                           <div className="flex space-x-2">
                             <Link
                               to={`/administration/reset-orders/${user.id}`}
-                              className="flex-1 bg-[#2563EB] hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded text-center transition-colors"
+                              className="flex-1 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold px-3 py-1.5 rounded text-center transition-colors"
                             >
                               Setup Order
                             </Link>
@@ -251,7 +260,7 @@ export default function AdminDashboard() {
                               }}
                               className="flex-1 bg-[#DC2626] hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors"
                             >
-                              Add Debit
+                              Adjust Balance
                             </button>
                           </div>
                           {/* Row 2 */}
@@ -268,7 +277,7 @@ export default function AdminDashboard() {
                                   }
                                 }
                               }}
-                              className="flex-1 bg-[#F59E0B] hover:bg-orange-600 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors"
+                              className="flex-1 bg-primary-700 hover:bg-primary-600 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors"
                             >
                               Reset Count
                             </button>
@@ -296,21 +305,21 @@ export default function AdminDashboard() {
                                       Edit Profile
                                     </Link>
                                     <Link
-                                      to={`/administration/wallet-details/${user.id}`}
+                                      to={`/administration/wallet/${user.id}`}
                                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                       onClick={() => setOpenDropdown(null)}
                                     >
                                       Wallet Details
                                     </Link>
                                     <Link
-                                      to={`/administration/deposit-history/${user.id}`}
+                                      to={`/administration/recharge-history/${user.id}`}
                                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                       onClick={() => setOpenDropdown(null)}
                                     >
                                       Deposit History
                                     </Link>
                                     <Link
-                                      to={`/administration/withdrawal-history/${user.id}`}
+                                      to={`/administration/redemption-history/${user.id}`}
                                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                       onClick={() => setOpenDropdown(null)}
                                     >
@@ -360,31 +369,34 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Add Debit - {selectedUser?.username}
+              Adjust Balance - {selectedUser?.username}
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Debit Amount (VIEWS)
+                <label className="label">
+                  Amount ($)
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={debitAmount}
                   onChange={(e) => setDebitAmount(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="0.00"
+                  className="input-field"
+                  placeholder="e.g. 50 to credit, -50 to debit"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Positive adds to the balance (credit). Negative subtracts from it (debit) — crediting a negative balance back up also auto-completes any orders that were held pending on it.
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Reason (Optional)
                 </label>
                 <textarea
                   value={debitReason}
                   onChange={(e) => setDebitReason(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Enter reason for debit..."
+                  className="input-field"
+                  placeholder="Enter reason for this adjustment..."
                   rows="3"
                 />
               </div>
@@ -404,7 +416,7 @@ export default function AdminDashboard() {
                   onClick={handleAddDebit}
                   className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
                 >
-                  Apply Debit
+                  Apply
                 </button>
               </div>
             </div>

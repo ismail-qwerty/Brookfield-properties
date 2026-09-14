@@ -1,74 +1,56 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { BrandLogo } from '../components/ui';
+
+const NAV = [
+  { path: '/administration', label: 'Users', end: true },
+  { path: '/administration/properties', label: 'Properties' },
+  { path: '/administration/memberships', label: 'Memberships' },
+  { path: '/administration/recharges', label: 'Recharges' },
+  { path: '/administration/redemptions', label: 'Redemptions' },
+];
 
 export default function AdminLayout() {
-  const location = useLocation();
   const { user, logout } = useAuth();
 
-  const navLinks = [
-    { path: '/administration', label: 'Users', icon: '👥' },
-    { path: '/administration/properties', label: 'Properties', icon: '🏢' },
-    { path: '/administration/memberships', label: 'Memberships', icon: '⭐' },
-    { path: '/administration/recharges', label: 'Recharges', icon: '💰' },
-    { path: '/administration/redemptions', label: 'Redemptions', icon: '💸' },
-  ];
-
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <aside className="w-64 bg-sidebar-900 text-white fixed h-full overflow-y-auto">
-        <div className="p-6">
-          <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center text-2xl font-bold mb-6">
-            P
-          </div>
-          
-          <div className="bg-sidebar-800 rounded-lg p-4 mb-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-600 rounded-full"></div>
-              <div>
-                <p className="font-semibold text-sm">{user?.username}</p>
-                <p className="text-xs text-gray-400">Administrator</p>
-              </div>
-            </div>
-          </div>
+    <div className="flex min-h-screen bg-white">
+      <aside className="w-[260px] bg-black text-white fixed h-full overflow-y-auto flex flex-col">
+        <div className="px-8 py-9">
+          <BrandLogo textClassName="text-[15px]" />
+          <div className="eyebrow-light mt-4">Administration</div>
+        </div>
 
-          <div className="mb-6">
-            <input
-              type="search"
-              placeholder="Search..."
-              className="w-full bg-sidebar-800 text-white px-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-
-          <nav className="space-y-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  location.pathname === link.path
-                    ? 'bg-primary-600 text-white'
-                    : 'text-gray-300 hover:bg-sidebar-800'
-                }`}
-              >
-                <span className="text-xl">{link.icon}</span>
-                <span className="font-medium">{link.label}</span>
-              </Link>
-            ))}
-          </nav>
-
-          <div className="mt-8 pt-8 border-t border-sidebar-700">
-            <button
-              onClick={logout}
-              className="flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-sidebar-800 rounded-lg w-full transition-colors"
+        <nav className="flex-1 px-4">
+          {NAV.map((link) => (
+            <NavLink
+              key={link.path}
+              to={link.path}
+              end={link.end}
+              className={({ isActive }) =>
+                `block px-4 py-3 text-[14px] tracking-wide transition-colors ${
+                  isActive ? 'bg-white text-black' : 'text-white/50 hover:text-white'
+                }`
+              }
             >
-              <span className="text-xl">🚪</span>
-              <span className="font-medium">Logout</span>
-            </button>
-          </div>
+              {link.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="px-8 py-8 border-t border-white/15">
+          <div className="text-[13px] text-white mb-1">{user?.username}</div>
+          <div className="text-[11px] text-white/40 mb-5">Administrator</div>
+          <button
+            onClick={logout}
+            className="text-[13px] text-white/50 hover:text-white transition-colors"
+          >
+            Log out
+          </button>
         </div>
       </aside>
 
-      <main className="ml-64 flex-1 p-8">
+      <main className="ml-[260px] flex-1 px-10 py-12 min-w-0">
         <Outlet />
       </main>
     </div>

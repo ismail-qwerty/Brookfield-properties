@@ -26,65 +26,58 @@ export default function Wallet() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-gradient-to-r from-teal-600 to-teal-400 text-white p-6">
-        <h1 className="text-2xl font-bold">My Wallet</h1>
-        <p className="text-teal-50 mt-1">Manage your account balance</p>
+    <div className="bg-white">
+      <div className="page-head">
+        <div className="wrap">
+          <div className="eyebrow-light mb-5">Account</div>
+          <h1 className="display text-white">My Wallet</h1>
+        </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="grid gap-6">
-          {/* Current Balance */}
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <h2 className="text-gray-500 text-sm uppercase tracking-wide mb-2">
-              Current Balance
-            </h2>
-            <div className="text-4xl font-bold text-teal-600">
-              <CurrencyDisplay amount={wallet?.balance || 0} />
+      <div className="wrap section-tight">
+        {/* Headline balance */}
+        <div className="border-b pb-12 mb-12" style={{ borderColor: 'var(--rule)' }}>
+          <div className="stat-label">Current Balance</div>
+          <div className="font-serif text-[56px] md:text-[80px] leading-none tnum">
+            <CurrencyDisplay amount={wallet?.balance || 0} />
+          </div>
+        </div>
+
+        {/* Supporting metrics */}
+        <div className="grid sm:grid-cols-3 gap-px mb-16" style={{ background: 'var(--rule)' }}>
+          <div className="bg-white pr-8 py-2">
+            <div className="stat-label">Total Recharged</div>
+            <div className="stat-value">
+              <CurrencyDisplay amount={wallet?.total_recharged || 0} />
             </div>
           </div>
-
-          {/* Wallet Statistics */}
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-gray-500 text-sm mb-2">Total Recharged</div>
-              <div className="text-2xl font-bold text-blue-600">
-                <CurrencyDisplay amount={wallet?.total_recharged || 0} />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-gray-500 text-sm mb-2">Total Earned</div>
-              <div className="text-2xl font-bold text-green-600">
-                <CurrencyDisplay amount={wallet?.total_earned || 0} />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-gray-500 text-sm mb-2">Total Withdrawn</div>
-              <div className="text-2xl font-bold text-orange-600">
-                <CurrencyDisplay amount={wallet?.total_withdrawn || 0} />
-              </div>
+          <div className="bg-white px-0 sm:pl-8 sm:pr-8 py-2">
+            <div className="stat-label">Total Earned</div>
+            <div className="stat-value">
+              <CurrencyDisplay amount={wallet?.total_earned || 0} />
             </div>
           </div>
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-800">Quick Actions</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <button
-                onClick={() => navigate('/recharge-history')}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-              >
-                View Deposit History
-              </button>
-              <button
-                onClick={() => navigate('/redemption')}
-                className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium"
-              >
-                Request Withdrawal
-              </button>
+          <div className="bg-white sm:pl-8 py-2">
+            <div className="stat-label">Total Withdrawn</div>
+            <div className="stat-value">
+              <CurrencyDisplay amount={wallet?.total_withdrawn || 0} />
             </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="rule pt-10">
+          <div className="eyebrow mb-6">Manage</div>
+          <div className="flex flex-wrap gap-4">
+            <button onClick={() => navigate('/recharge')} className="btn-solid">
+              Add Funds
+            </button>
+            <button onClick={() => navigate('/redemption')} className="btn-outline">
+              Request Withdrawal
+            </button>
+            <button onClick={() => navigate('/recharge-history')} className="btn-outline">
+              Deposit History
+            </button>
           </div>
         </div>
       </div>

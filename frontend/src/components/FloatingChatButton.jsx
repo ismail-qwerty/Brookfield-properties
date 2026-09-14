@@ -18,13 +18,33 @@ export default function FloatingChatButton() {
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const pollRef = useRef(null);
+  const prevMessageCountRef = useRef(0);
+  const [panelHeight, setPanelHeight] = useState(560);
+  const [showGreeting, setShowGreeting] = useState(false);
 
   const isAdminOrSupport = user?.user_type === 'Admin' || user?.user_type === 'ChatSupport';
   const isHiddenPage = location.pathname === '/support' || location.pathname.startsWith('/administration');
 
+  const dismissGreeting = () => {
+    setShowGreeting(false);
+    try { sessionStorage.setItem('chat_greeting_dismissed', '1'); } catch { /* storage unavailable */ }
+  };
+
+  // Proactively surface a friendly greeting bubble above the launcher a
+  // moment after the page loads, once per browser session, so the chat
+  // entry point doesn't rely on the user noticing a plain icon.
+  useEffect(() => {
+    if (!user || isAdminOrSupport || isHiddenPage) return;
+    let dismissed = false;
+    try { dismissed = !!sessionStorage.getItem('chat_greeting_dismissed'); } catch { /* storage unavailable */ }
+    if (dismissed) return;
+    const timer = setTimeout(() => setShowGreeting(true), 1500);
+    return () => clearTimeout(timer);
+  }, [user, isAdminOrSupport, isHiddenPage]);
+
   // Listen for external open trigger (from Contact nav buttons)
   useEffect(() => {
-    const handler = () => setOpen(true);
+    const handler = () => { setOpen(true); dismissGreeting(); };
     window.addEventListener('open-chat-widget', handler);
     return () => window.removeEventListener('open-chat-widget', handler);
   }, []);
@@ -58,8 +78,26 @@ export default function FloatingChatButton() {
   }, [open, conversation?.id]);
 
   useEffect(() => {
-    if (open) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (open && messages.length > prevMessageCountRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevMessageCountRef.current = messages.length;
   }, [messages, open]);
+
+  // Keep the panel from ever extending above the visible viewport (or
+  // underneath the site's own sticky header) on short windows.
+  useEffect(() => {
+    if (!open) return;
+    const recalc = () => {
+      const header = document.querySelector('header');
+      const topClearance = Math.max(16, (header?.getBoundingClientRect().bottom || 0) + 16);
+      const available = window.innerHeight - 96 - topClearance; // 96 = bottom-24 offset
+      setPanelHeight(Math.max(320, Math.min(560, available)));
+    };
+    recalc();
+    window.addEventListener('resize', recalc);
+    return () => window.removeEventListener('resize', recalc);
+  }, [open]);
 
   const initChat = async () => {
     setLoading(true);
@@ -142,126 +180,160 @@ export default function FloatingChatButton() {
 
   if (!user || isAdminOrSupport || isHiddenPage) return null;
 
+  const isActive = conversation?.status === 'InProgress';
+
   return (
     <>
-      {/* Floating Button */}
+      {/* Proactive greeting bubble */}
+      <div
+        className={`fixed bottom-24 right-6 z-40 w-[270px] max-w-[calc(100vw-2rem)] transition-all duration-300 ease-out ${
+          showGreeting && !open ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
+        }`}
+      >
+        <div className="relative bg-white rounded-[18px] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4)] border border-black/5 pl-5 pr-9 py-4">
+          <button
+            onClick={dismissGreeting}
+            aria-label="Dismiss"
+            className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full flex items-center justify-center text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <button onClick={() => { setOpen(true); dismissGreeting(); }} className="text-left w-full">
+            <p className="font-serif text-[15px] text-black leading-snug mb-1">Hi, how can we help?</p>
+            <p className="text-[12.5px] text-[var(--ink-45)] leading-relaxed">Our team is online and ready to answer any questions.</p>
+          </button>
+          <div className="absolute -bottom-[7px] right-8 w-3.5 h-3.5 bg-white rotate-45 border-r border-b border-black/5"></div>
+        </div>
+      </div>
+
+      {/* Launcher */}
       <button
-        onClick={() => setOpen(o => !o)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-[#5DBDAE] hover:bg-[#4da89a] text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 z-50"
+        onClick={() => { setOpen((o) => !o); dismissGreeting(); }}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-black text-white flex items-center justify-center transition-all duration-200 hover:scale-105 hover:bg-[var(--ink-70)] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
         title="Customer Support"
       >
         {open ? (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
-          <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.4} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
           </svg>
         )}
         {!open && unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[11px] font-medium rounded-full flex items-center justify-center border-2 border-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Chat Widget */}
-      {open && (
-        <div className="fixed bottom-24 right-6 w-80 bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50" style={{ height: '480px' }}>
-          {/* Header */}
-          <div className="bg-[#5DBDAE] text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold leading-tight">Brookfield Support</p>
-                <p className="text-xs text-white/80">
-                  {conversation?.status === 'InProgress' ? 'Agent responding...' : '● Online'}
-                </p>
-              </div>
+      {/* Chat Panel */}
+      <div
+        className={`fixed bottom-24 right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-[20px] shadow-[0_30px_70px_-20px_rgba(0,0,0,0.45)] flex flex-col overflow-hidden origin-bottom-right transition-all duration-200 ease-out ${
+          open ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-3 pointer-events-none'
+        }`}
+        style={{ height: panelHeight }}
+      >
+        {/* Header */}
+        <div className="bg-black text-white px-5 py-4 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0">
+              <span className="font-serif text-[14px]">B</span>
             </div>
-            <button onClick={() => setOpen(false)} className="text-white/80 hover:text-white">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <div className="min-w-0">
+              <p className="font-serif text-[15px] leading-tight truncate">Blackstone Support</p>
+              <p className="text-[11px] text-white/55 flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"></span>
+                {isActive ? 'Agent responding' : 'Online'}
+              </p>
+            </div>
+          </div>
+          <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[var(--paper-alt)]">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="w-6 h-6 rounded-full border-2 border-black border-t-transparent animate-spin"></div>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center px-6">
+              <svg className="w-9 h-9 mb-3 text-[var(--ink-25)]" fill="none" stroke="currentColor" strokeWidth={1.25} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+              </svg>
+              <p className="text-[13px] text-[var(--ink-45)]">How can we help you today?</p>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[78%] px-3.5 py-2.5 text-[13px] leading-relaxed rounded-[16px] ${
+                    msg.sender_id === user?.id
+                      ? 'bg-black text-white rounded-br-[4px]'
+                      : 'bg-white text-black rounded-bl-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.1)]'
+                  }`}
+                >
+                  {msg.message_type === 'image' && msg.image_url ? (
+                    <>
+                      <img src={msg.image_url} alt="Shared" className="max-w-full h-auto max-h-40 mb-1.5 cursor-pointer" onClick={() => window.open(msg.image_url, '_blank')} />
+                      {msg.message !== 'Sent an image' && <p>{msg.message}</p>}
+                    </>
+                  ) : (
+                    <p className="break-words">{msg.message}</p>
+                  )}
+                  <p className={`text-[10px] mt-1 tnum ${msg.sender_id === user?.id ? 'text-white/60' : 'text-[var(--ink-45)]'}`}>
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input */}
+        <form onSubmit={handleSend} className="border-t border-[var(--rule)] bg-white px-3.5 py-3 flex-shrink-0">
+          {imagePreview && (
+            <div className="mb-2.5 relative inline-block">
+              <img src={imagePreview} alt="preview" className="max-h-16 rounded-[10px] border border-[var(--rule)]" />
+              <button type="button" onClick={handleRemoveImage} className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-black text-white rounded-full text-[10px] flex items-center justify-center">✕</button>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] transition-colors" disabled={sending}>
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+              </svg>
+            </button>
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type a message…"
+              className="flex-1 text-[13px] px-4 py-2.5 rounded-full bg-[var(--paper-alt)] border border-transparent focus:outline-none focus:border-black focus:bg-white transition-colors"
+              disabled={sending}
+            />
+            <button
+              type="submit"
+              disabled={sending || (!newMessage.trim() && !selectedImage)}
+              className="w-9 h-9 rounded-full bg-black hover:bg-[var(--ink-70)] disabled:opacity-30 text-white flex items-center justify-center flex-shrink-0 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6" />
               </svg>
             </button>
           </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#5DBDAE]"></div>
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm text-center px-4">
-                <svg className="w-10 h-10 mb-2 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clipRule="evenodd" />
-                </svg>
-                <p>How can we help you today?</p>
-              </div>
-            ) : (
-              messages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${msg.sender_id === user?.id ? 'bg-[#5DBDAE] text-white rounded-br-none' : 'bg-white text-gray-800 shadow-sm rounded-bl-none'}`}>
-                    {msg.message_type === 'image' && msg.image_url ? (
-                      <>
-                        <img src={msg.image_url} alt="img" className="rounded max-w-full h-auto max-h-40 mb-1 cursor-pointer" onClick={() => window.open(msg.image_url, '_blank')} />
-                        {msg.message !== 'Sent an image' && <p>{msg.message}</p>}
-                      </>
-                    ) : (
-                      <p className="break-words">{msg.message}</p>
-                    )}
-                    <p className={`text-xs mt-1 ${msg.sender_id === user?.id ? 'text-white/70' : 'text-gray-400'}`}>
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <form onSubmit={handleSend} className="border-t bg-white px-3 py-2 flex-shrink-0">
-            {imagePreview && (
-              <div className="mb-2 relative inline-block">
-                <img src={imagePreview} alt="preview" className="max-h-16 rounded border" />
-                <button type="button" onClick={handleRemoveImage} className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">✕</button>
-              </div>
-            )}
-            <div className="flex gap-2 items-center">
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="text-gray-400 hover:text-gray-600" disabled={sending}>
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                </svg>
-              </button>
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-[#5DBDAE]"
-                disabled={sending}
-              />
-              <button
-                type="submit"
-                disabled={sending || (!newMessage.trim() && !selectedImage)}
-                className="w-8 h-8 bg-[#5DBDAE] hover:bg-[#4da89a] disabled:opacity-40 text-white rounded-full flex items-center justify-center flex-shrink-0"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                </svg>
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+        </form>
+      </div>
     </>
   );
 }

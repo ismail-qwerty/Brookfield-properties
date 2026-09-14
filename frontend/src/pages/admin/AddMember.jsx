@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LoadingSpinner } from '../../components/ui';
 import api from '../../utils/api';
+
+const EMAIL_DOMAIN = '@gmail.com';
 
 export default function AddMember() {
   const navigate = useNavigate();
@@ -13,20 +15,28 @@ export default function AddMember() {
     full_name: '',
     parent_id: '',
     phone: '',
-    email: '',
+    email_local: '',
     password: '',
     wallet_password: '',
     credibility: '100',
-    opening_balance: '0',
+    opening_balance: '455',
     min_withdrawal: '50',
     max_withdrawal: '500',
     user_type: 'User',
     tier_id: '1',
   });
+  const [usernameStatus, setUsernameStatus] = useState({ checking: false, available: null });
+  const usernameCheckTimer = useRef(null);
 
-  useEffect(() => {
-    fetchMemberships();
-  }, []);
+  const checkUsername = async (username) => {
+    setUsernameStatus({ checking: true, available: null });
+    try {
+      const { data } = await api.auth.checkUsername(username);
+      setUsernameStatus({ checking: false, available: data.data.available });
+    } catch {
+      setUsernameStatus({ checking: false, available: null });
+    }
+  };
 
   const fetchMemberships = async () => {
     try {
@@ -37,19 +47,38 @@ export default function AddMember() {
     }
   };
 
+  useEffect(() => {
+    fetchMemberships();
+  }, []);
+
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+
+    if (name === 'username') {
+      setUsernameStatus({ checking: false, available: null });
+      clearTimeout(usernameCheckTimer.current);
+      const trimmed = value.trim();
+      if (trimmed.length >= 3) {
+        usernameCheckTimer.current = setTimeout(() => checkUsername(trimmed), 400);
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!formData.username || !formData.full_name || !formData.email || !formData.phone || !formData.password || !formData.wallet_password) {
-      setError('Username, Full Name, Email, Phone, Password, and Wallet Password are required');
+    if (!formData.username || !formData.full_name || !formData.email_local || !formData.phone || !formData.password || !formData.wallet_password) {
+      setError('Username, Full Name, Email, Phone, Password, and Withdrawal Password are required');
+      return;
+    }
+
+    if (usernameStatus.available === false) {
+      setError('That username is already taken. Please choose another.');
       return;
     }
 
@@ -69,7 +98,7 @@ export default function AddMember() {
     }
 
     if (!/[0-9]/.test(formData.wallet_password)) {
-      setError('Wallet password must contain at least one number');
+      setError('Withdrawal password must contain at least one number');
       return;
     }
 
@@ -78,13 +107,38 @@ export default function AddMember() {
       return;
     }
 
+    if (parseFloat(formData.min_withdrawal) <= 0 || parseFloat(formData.max_withdrawal) <= 0) {
+      setError('Minimum and Maximum Withdraw must be positive');
+      return;
+    }
+
+    if (parseFloat(formData.min_withdrawal) >= parseFloat(formData.max_withdrawal)) {
+      setError('Minimum Withdraw must be less than Maximum Withdraw');
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // Registration and the follow-up profile update are two separate
+      // requests, not one transaction — validate everything we can up front
+      // (including that a given Parent ID actually exists) so a bad field
+      // can't leave an orphaned, half-configured account behind after
+      // registration succeeds but the update fails.
+      if (formData.parent_id) {
+        try {
+          await api.admin.getUserById(formData.parent_id);
+        } catch {
+          setError(`Parent ID ${formData.parent_id} does not exist`);
+          setLoading(false);
+          return;
+        }
+      }
+
       const payload = {
         username: formData.username,
         full_name: formData.full_name,
-        email: formData.email,
+        email: `${formData.email_local.trim().replace(/@.*$/, '')}${EMAIL_DOMAIN}`,
         phone: formData.phone,
         password: formData.password,
         confirm_password: formData.password,
@@ -110,7 +164,20 @@ export default function AddMember() {
         updatePayload.balance_adjustment = parseFloat(formData.opening_balance);
       }
 
-      await api.admin.updateUser(newUserId, updatePayload);
+      try {
+        await api.admin.updateUser(newUserId, updatePayload);
+      } catch (updateErr) {
+        // The account exists but couldn't be fully configured. Say so
+        // explicitly rather than showing a generic error that looks like
+        // nothing happened — the admin needs to find and fix this account
+        // (e.g. via "Edit User"), not just retry with the same username.
+        setError(
+          `Account "${formData.username}" was created, but couldn't be fully configured: ` +
+          `${updateErr.response?.data?.error || 'unknown error'}. Find it in the user list and finish setting it up there.`
+        );
+        setLoading(false);
+        return;
+      }
 
       alert('Member registered successfully!');
       navigate('/administration');
@@ -126,7 +193,7 @@ export default function AddMember() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Add Member</h1>
         <p className="text-sm text-gray-600 mt-1">
-          <Link to="/administration" className="text-blue-600 hover:underline">Home</Link>
+          <Link to="/administration" className="link-quiet">Home</Link>
           <span className="mx-2">/</span>
           <span>Add Member</span>
         </p>
@@ -139,7 +206,7 @@ export default function AddMember() {
       )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-blue-600 px-6 py-4">
+        <div className="bg-black px-8 py-6">
           <h2 className="text-xl font-bold text-white">Member Data</h2>
         </div>
 
@@ -154,10 +221,19 @@ export default function AddMember() {
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="Enter Username"
                 required
               />
+              {usernameStatus.checking && (
+                <p className="text-xs mt-1 text-gray-500">Checking availability…</p>
+              )}
+              {!usernameStatus.checking && usernameStatus.available === true && (
+                <p className="text-xs mt-1 text-green-600">Username is available</p>
+              )}
+              {!usernameStatus.checking && usernameStatus.available === false && (
+                <p className="text-xs mt-1 text-red-600">Username is already taken</p>
+              )}
             </div>
 
             <div>
@@ -169,7 +245,7 @@ export default function AddMember() {
                 name="full_name"
                 value={formData.full_name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="Enter Complete Name"
                 required
               />
@@ -184,7 +260,7 @@ export default function AddMember() {
                 name="parent_id"
                 value={formData.parent_id}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="Enter ParentID"
               />
             </div>
@@ -198,7 +274,7 @@ export default function AddMember() {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="Enter Phone Number"
                 required
               />
@@ -208,15 +284,20 @@ export default function AddMember() {
               <label className="block text-sm font-semibold text-gray-900 mb-2">
                 Email Address
               </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter Email Address"
-                required
-              />
+              <div className="flex">
+                <input
+                  type="text"
+                  name="email_local"
+                  value={formData.email_local}
+                  onChange={handleChange}
+                  className="input-field rounded-r-none"
+                  placeholder="Enter username"
+                  required
+                />
+                <span className="inline-flex items-center px-3 border border-l-0 border-gray-300 bg-gray-100 text-gray-600 text-sm rounded-r-lg whitespace-nowrap">
+                  {EMAIL_DOMAIN}
+                </span>
+              </div>
             </div>
 
             <div>
@@ -228,7 +309,7 @@ export default function AddMember() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="*********"
                 required
               />
@@ -236,14 +317,14 @@ export default function AddMember() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Wallet Password
+                Withdrawal Password
               </label>
               <input
                 type="password"
                 name="wallet_password"
                 value={formData.wallet_password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="*********"
                 required
               />
@@ -260,7 +341,7 @@ export default function AddMember() {
                 onChange={handleChange}
                 min="0"
                 max="100"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="Enter Credibility"
               />
             </div>
@@ -275,7 +356,7 @@ export default function AddMember() {
                 value={formData.opening_balance}
                 onChange={handleChange}
                 step="0.01"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="Enter Opening Balance"
               />
             </div>
@@ -290,7 +371,7 @@ export default function AddMember() {
                 value={formData.min_withdrawal}
                 onChange={handleChange}
                 step="0.01"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="Set Minimum Withdraw Amount"
               />
             </div>
@@ -305,7 +386,7 @@ export default function AddMember() {
                 value={formData.max_withdrawal}
                 onChange={handleChange}
                 step="0.01"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="Set Maximum Withdraw Amount"
               />
             </div>
@@ -318,7 +399,7 @@ export default function AddMember() {
                 name="user_type"
                 value={formData.user_type}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
               >
                 <option value="User">User</option>
                 <option value="Admin">Admin</option>
@@ -334,7 +415,7 @@ export default function AddMember() {
                 name="tier_id"
                 value={formData.tier_id}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
               >
                 {memberships.map((tier) => (
                   <option key={tier.id} value={tier.id}>
@@ -356,7 +437,7 @@ export default function AddMember() {
             <button
               type="submit"
               disabled={loading}
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="btn-solid disabled:opacity-40"
             >
               {loading ? (
                 <>

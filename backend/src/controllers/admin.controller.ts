@@ -90,7 +90,7 @@ export class AdminController {
     return ResponseUtil.success(
       res,
       result,
-      `Debit of VIEWS ${amount.toFixed(2)} applied successfully`
+      `${amount > 0 ? 'Credit' : 'Debit'} of $${Math.abs(amount).toFixed(2)} applied successfully`
     );
   });
 

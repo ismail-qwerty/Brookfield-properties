@@ -5,6 +5,27 @@ import { ENV } from '../config/environment.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 export class AuthService {
+  /**
+   * Check whether a username is free to register, for live "already taken"
+   * feedback while the user is still typing (rather than only finding out
+   * after submitting the whole form).
+   */
+  static async checkUsernameAvailable(username: string) {
+    const trimmed = username.trim();
+
+    if (trimmed.length < 3) {
+      return { available: false, reason: 'Username must be at least 3 characters' };
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('username', trimmed)
+      .maybeSingle();
+
+    return { available: !existing };
+  }
+
   static async register(userData: {
     username: string;
     full_name: string;
@@ -26,42 +47,21 @@ export class AuthService {
 
     console.log('[REGISTER] Registration attempt:', { username, email, phone, reference_code });
 
-    // Validate reference code if provided
+    // Any reference code is accepted; it only links a referrer when it matches an active user
     let referrer_id = null;
     if (reference_code && reference_code.trim() !== '') {
-      console.log('[REGISTER] Validating reference code:', reference_code);
-      
-      const { data: referrer, error: referrerError } = await supabaseAdmin
+      const { data: referrer } = await supabaseAdmin
         .from('users')
         .select('id, username, user_status')
         .eq('reference_code', reference_code)
         .maybeSingle();
 
-      console.log('[REGISTER] Referrer lookup result:', { 
-        found: !!referrer, 
-        error: referrerError?.message,
-        referrer: referrer ? { id: referrer.id, username: referrer.username, status: referrer.user_status } : null
-      });
-
-      if (referrerError) {
-        console.error('[REGISTER] Referrer lookup error:', referrerError);
-        throw new AppError(400, 'Error validating reference code. Please try again.');
+      if (referrer?.user_status === 'Active') {
+        referrer_id = referrer.id;
+        console.log('[REGISTER] Reference code matched active user:', referrer.username);
+      } else {
+        console.log('[REGISTER] Reference code has no active match, continuing without referrer:', reference_code);
       }
-
-      if (!referrer) {
-        console.error('[REGISTER] Invalid reference code provided:', reference_code);
-        throw new AppError(400, 'Invalid reference code. Please check your invitation link.');
-      }
-
-      if (referrer.user_status !== 'Active') {
-        console.error('[REGISTER] Referrer account is inactive:', referrer.user_status);
-        throw new AppError(400, 'Reference code belongs to an inactive account.');
-      }
-
-      referrer_id = referrer.id;
-      console.log('[REGISTER] Valid referrer found, ID:', referrer_id);
-    } else {
-      console.log('[REGISTER] No reference code provided, allowing registration without referrer');
     }
 
     // Check if username already exists
@@ -102,7 +102,7 @@ export class AuthService {
     const wallet_password_hash = await bcrypt.hash(wallet_password, 10);
 
     // Generate unique reference code for new user
-    const newReferenceCode = this.generateReferenceCode();
+    const newReferenceCode = await this.generateReferenceCode();
 
     // Try RPC function first, fallback to direct insert
     let createdUser;
@@ -173,21 +173,32 @@ export class AuthService {
     };
   }
 
-  static async login(username: string, password: string) {
-    console.log('[LOGIN] Attempt for username:', username);
+  static async login(identifier: string, password: string) {
+    console.log('[LOGIN] Attempt for identifier:', identifier);
     console.log('[LOGIN] Password length:', password?.length);
-    
-    // Find user by username
-    const { data: user, error } = await supabaseAdmin
+
+    // Regular accounts sign in with their gmail address; admin/support
+    // accounts (which don't have one) keep signing in with their username.
+    // Try a username match first, then fall back to an email match so both
+    // work through the same field without the caller needing to say which.
+    let { data: user, error } = await supabaseAdmin
       .from('users')
       .select('*')
-      .eq('username', username)
-      .single();
+      .eq('username', identifier)
+      .maybeSingle();
 
-    console.log('[LOGIN] User lookup result:', { 
-      found: !!user, 
+    if (!user && !error) {
+      ({ data: user, error } = await supabaseAdmin
+        .from('users')
+        .select('*')
+        .eq('email', identifier.toLowerCase())
+        .maybeSingle());
+    }
+
+    console.log('[LOGIN] User lookup result:', {
+      found: !!user,
       error: error?.message,
-      errorDetails: error 
+      errorDetails: error
     });
 
     if (error) {
@@ -196,7 +207,7 @@ export class AuthService {
     }
 
     if (!user) {
-      console.error('[LOGIN] User not found for username:', username);
+      console.error('[LOGIN] User not found for identifier:', identifier);
       throw new AppError(401, 'Invalid username or password');
     }
 
@@ -223,7 +234,7 @@ export class AuthService {
     console.log('[LOGIN] Password comparison result:', isPasswordValid);
 
     if (!isPasswordValid) {
-      console.error('[LOGIN] Invalid password for user:', username);
+      console.error('[LOGIN] Invalid password for user:', identifier);
       throw new AppError(401, 'Invalid username or password');
     }
 
@@ -250,7 +261,7 @@ export class AuthService {
       .eq('id', user.tier_id)
       .single();
 
-    console.log('[LOGIN] Login successful for user:', username);
+    console.log('[LOGIN] Login successful for user:', user.username);
 
     return {
       user: {
@@ -275,8 +286,8 @@ export class AuthService {
       },
       tier: tier || {
         name: 'Silver',
-        order_limit: 35,
-        commission_rate: 0.5,
+        order_limit: 27,
+        commission_rate: 0.9,
       },
       token,
     };
@@ -286,12 +297,31 @@ export class AuthService {
     return jwt.sign({ userId }, ENV.JWT.SECRET, { expiresIn: '7d' });
   }
 
-  private static generateReferenceCode(): string {
+  private static generateReferenceCodeCandidate(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = 'REF';
-    for (let i = 0; i < 8; i++) {
+    let code = '';
+    for (let i = 0; i < 5; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
+  }
+
+  private static async generateReferenceCode(): Promise<string> {
+    // 5 alphanumeric chars gives 36^5 (~60M) combinations, but check for a
+    // collision anyway rather than relying on chance with a growing user base.
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const candidate = this.generateReferenceCodeCandidate();
+      const { data: existing } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('reference_code', candidate)
+        .maybeSingle();
+
+      if (!existing) {
+        return candidate;
+      }
+    }
+
+    throw new AppError(500, 'Failed to generate a unique reference code');
   }
 }

@@ -45,16 +45,8 @@ export default function BindWallet() {
   return (
     <div className="min-h-screen bg-[#f7f9fc]">
       {/* Navbar - Same as Dashboard */}
-      <nav className="bg-white shadow-sm py-4">
-        <div className="container mx-auto px-4 flex items-center justify-between">
-          <img src="/BR logo.webp" alt="BR Logo" className="h-12" />
-          <Link to="/support" className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">
-            Contact Support
-          </Link>
-        </div>
-      </nav>
       {/* Hero Header */}
-      <section className="relative py-16 bg-gradient-to-r from-gray-700 to-gray-900 text-white">
+      <section className="relative py-16 bg-black text-white">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl font-bold mb-2">Add Funds</h1>
           <nav className="flex justify-center items-center gap-2 text-sm">
@@ -76,7 +68,7 @@ export default function BindWallet() {
                   Account Balance - {user?.username}
                 </h4>
                 <p className="text-2xl font-bold text-blue-600">
-                  {balance.toFixed(2)} VIEWS
+                  ${balance.toFixed(2)}
                 </p>
               </div>
 
@@ -146,72 +138,6 @@ export default function BindWallet() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-blue-600 text-white py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <h3 className="text-xl font-bold mb-4">Brookfield Properties</h3>
-              <p className="text-sm opacity-90">
-                Trusted real estate & services. Manage your account, wallet and orders from your
-                dashboard.
-              </p>
-            </div>
-            <div>
-              <h5 className="font-bold mb-3">Helpful Links</h5>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link to="/recharge" className="hover:underline">
-                    <i className="fa fa-angle-right mr-1"></i>Recharge
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/redemption" className="hover:underline">
-                    <i className="fa fa-angle-right mr-1"></i>Redeem
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/recharge-history" className="hover:underline">
-                    <i className="fa fa-angle-right mr-1"></i>Recharge History
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-3">Account</h5>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <Link to="/dashboard" className="hover:underline">
-                    <i className="fa fa-angle-right mr-1"></i>Dashboard
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/data-optimization" className="hover:underline">
-                    <i className="fa fa-angle-right mr-1"></i>Generate Lots
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/profile" className="hover:underline">
-                    <i className="fa fa-angle-right mr-1"></i>Profile
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-bold mb-3">Contact</h5>
-              <p className="text-sm">
-                455 West Orchard Street
-                <br />
-                Kings Mountain, NC 28086
-                <br />
-                Phone: (272) 211-7370
-              </p>
-            </div>
-          </div>
-          <div className="border-t border-white/20 mt-8 pt-6 text-center text-sm">
-            <p>© 2025 Brookfield Properties. All Rights Reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

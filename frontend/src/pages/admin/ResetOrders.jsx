@@ -44,7 +44,7 @@ export default function ResetOrders() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Setup Orders</h1>
           <p className="text-sm text-gray-600 mt-1">
-            <Link to="/administration" className="text-blue-600 hover:underline">Home</Link>
+            <Link to="/administration" className="link-quiet">Home</Link>
             <span className="mx-2">/</span>
             <span>Setup Orders</span>
           </p>
@@ -52,7 +52,7 @@ export default function ResetOrders() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-blue-600 px-6 py-4">
+        <div className="bg-black px-8 py-6">
           <h2 className="text-xl font-bold text-white">
             Setup Orders for {user?.username}
           </h2>
@@ -64,14 +64,14 @@ export default function ResetOrders() {
               <p className="text-gray-600 mb-6">No orders selected for this user.</p>
               <button
                 onClick={() => navigate(`/administration/reset-single/${id}`)}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+                className="btn-solid"
               >
                 Setup Order
               </button>
             </>
           ) : (
             <>
-              <p className="text-green-600 font-semibold mb-4">
+              <p className="text-black font-semibold mb-4">
                 {assignedLots.length} Special Lot(s) Assigned
               </p>
               
@@ -82,18 +82,28 @@ export default function ResetOrders() {
                       <div>
                         <p className="font-semibold text-gray-900">{lot.properties?.name || lot.special_lots?.title || 'Special Lot'}</p>
                         <p className="text-sm text-gray-600 mt-1">
-                          Appears after order: <span className="font-semibold">{lot.trigger_after_order_no}</span>
+                          {lot.status === 'Pending' ? (
+                            <>
+                              Appears after{' '}
+                              <span className="font-semibold">
+                                {Math.max(0, lot.trigger_after_order_no - (user?.total_orders || 0))}
+                              </span>{' '}
+                              more completed order(s)
+                            </>
+                          ) : (
+                            <>Was set to appear at lifetime order #{lot.trigger_after_order_no}</>
+                          )}
                         </p>
                         <p className="text-sm text-gray-600">
-                          Price: <span className="font-semibold text-red-600">VIEWS {lot.lot_value}</span>
+                          Price: <span className="font-semibold text-black">${lot.lot_value}</span>
                         </p>
                         <p className="text-sm text-gray-600">
-                          Daily Commission: <span className="font-semibold text-green-600">VIEWS {lot.daily_commission} (2.5%)</span>
+                          Daily Commission: <span className="font-semibold text-black">${lot.daily_commission} (27%)</span>
                         </p>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        lot.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                        lot.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
+                        lot.status === 'Completed' ? 'bg-black text-white' :
+                        lot.status === 'Pending' ? 'bg-white text-black border border-black' :
                         'bg-gray-100 text-gray-700'
                       }`}>
                         {lot.status}
@@ -105,7 +115,7 @@ export default function ResetOrders() {
 
               <button
                 onClick={() => navigate(`/administration/reset-single/${id}`)}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
+                className="btn-solid"
               >
                 Add More Orders
               </button>

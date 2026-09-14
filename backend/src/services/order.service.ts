@@ -2,7 +2,79 @@ import { supabaseAdmin } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { Logger } from '../utils/logger.js';
 
+// Marker stored in orders.property_name (otherwise unused on this table) to
+// identify an order that already paid out but was left Pending because it
+// pushed the wallet negative. AdminService.applyDebit looks for this marker
+// to know which Pending orders are safe to auto-complete once the balance
+// recovers, without touching orders that are genuinely awaiting a first
+// submission.
+export const NEGATIVE_BALANCE_FLAG = 'AWAITING_BALANCE_RECOVERY';
+
+// Referral bonus: whenever a referred user earns commission on a completed
+// order, their referrer is credited this fraction of that commission.
+export const REFERRAL_BONUS_RATE = 0.15;
+
 export class OrderService {
+  /**
+   * Credit a referrer with their cut of a referred user's just-earned
+   * commission. Best-effort: failures here must never roll back or block
+   * the referred user's own order completion, so all errors are swallowed
+   * (and logged) rather than thrown.
+   */
+  private static async payReferralBonus(referrerId: string, commissionEarned: number, sourceUsername: string) {
+    try {
+      const bonus = Number((commissionEarned * REFERRAL_BONUS_RATE).toFixed(2));
+      if (bonus <= 0) return;
+
+      const { data: wallet, error: walletError } = await supabaseAdmin
+        .from('wallets')
+        .select('balance, total_earned')
+        .eq('user_id', referrerId)
+        .single();
+
+      if (walletError || !wallet) {
+        Logger.error('Referral bonus: referrer wallet not found', { referrerId });
+        return;
+      }
+
+      const newBalance = Number(wallet.balance) + bonus;
+      const newTotalEarned = Number(wallet.total_earned) + bonus;
+
+      const { error: updateError } = await supabaseAdmin
+        .from('wallets')
+        .update({ balance: newBalance, total_earned: newTotalEarned })
+        .eq('user_id', referrerId);
+
+      if (updateError) {
+        Logger.error('Referral bonus: failed to credit referrer wallet', { referrerId, error: updateError });
+        return;
+      }
+
+      // A referral bonus can pull the referrer's own balance back out of the
+      // negative — mirror AdminService.adjustWalletBalance's auto-resolution
+      // of any orders that were left Pending under NEGATIVE_BALANCE_FLAG.
+      if (newBalance >= 0) {
+        await supabaseAdmin
+          .from('orders')
+          .update({ status: 'Completed', property_name: null, created_at: new Date().toISOString() })
+          .eq('user_id', referrerId)
+          .eq('status', 'Pending')
+          .eq('property_name', NEGATIVE_BALANCE_FLAG);
+      }
+
+      await supabaseAdmin.from('debits_log').insert({
+        user_id: referrerId,
+        amount: bonus,
+        reason: `Referral bonus (15%) from ${sourceUsername}'s order commission`,
+        applied_by_admin_id: null,
+      });
+
+      Logger.info('Referral bonus paid', { referrerId, bonus, sourceUsername });
+    } catch (error) {
+      Logger.error('Unexpected error paying referral bonus', { referrerId, error });
+    }
+  }
+
   static async generateLot(userId: string) {
     try {
       Logger.info('Starting lot generation', { userId });
@@ -56,26 +128,13 @@ export class OrderService {
 
       const tier = membershipData;
 
-      // Step 3: Check daily limit
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Step 3: Check lifetime lot limit. order_limit is a per-cycle cap on
+      // total_orders (lifetime, not daily) — an admin resets total_orders
+      // back to 0 via "Reset Count" to start a user's next cycle.
+      const totalOrders = user.total_orders || 0;
 
-      const { count: todayCount, error: countError } = await supabaseAdmin
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('status', 'Completed')
-        .gte('created_at', today.toISOString());
-
-      if (countError) {
-        Logger.error('Daily count error', { userId, error: countError });
-        throw new AppError(500, 'Failed to check daily limit');
-      }
-
-      const ordersToday = todayCount || 0;
-
-      if (ordersToday >= tier.order_limit) {
-        throw new AppError(429, `Daily limit reached: ${ordersToday}/${tier.order_limit}. Come back tomorrow!`);
+      if (totalOrders >= tier.order_limit) {
+        throw new AppError(429, `Lot limit reached: ${totalOrders}/${tier.order_limit}.`);
       }
 
       // Step 3.5: Check if a special lot should be injected
@@ -99,7 +158,7 @@ export class OrderService {
           .single();
 
         if (specialProperty) {
-          const commission = Number(specialProperty.value) * 0.30;
+          const commission = Number(specialProperty.value) * 0.27;
 
           // Insert into orders so submitOrder can handle it normally
           const { data: newOrder, error: insertErr } = await supabaseAdmin
@@ -151,41 +210,44 @@ export class OrderService {
         }
       }
 
-      // Step 4: Fetch pending orders
-      const { data: pendingOrders, error: ordersError } = await supabaseAdmin
-        .from('orders')
-        .select('id, property_id, commission')
-        .eq('user_id', userId)
-        .eq('status', 'Pending')
-        .order('id', { ascending: true })
-        .limit(1);
-
-      if (ordersError) {
-        Logger.error('Orders fetch error', { userId, error: ordersError });
-        throw new AppError(500, `Failed to fetch orders: ${ordersError.message}`);
-      }
-
-      // If no pending orders, auto-generate 35 default orders
-      if (!pendingOrders || pendingOrders.length === 0) {
-        await this.autoAssignDefaultOrders(userId, tier.order_limit);
-        
-        // Fetch again after creation
-        const { data: newPendingOrders, error: newOrdersError } = await supabaseAdmin
+      // Step 4: Fetch pending orders. This path is for NORMAL lots only —
+      // special lots are only ever supposed to be surfaced via the queue
+      // injection above (Step 3.5). We still filter special-lot properties
+      // out here defensively: an order can be left with status='Pending'
+      // after already being paid out (see submitOrder's negative-balance
+      // handling), and it must never be re-servable as someone's "next lot".
+      const fetchNormalPendingOrder = async () => {
+        const { data, error: ordersError } = await supabaseAdmin
           .from('orders')
-          .select('id, property_id, commission')
+          .select('id, property_id, commission, properties(lot_type)')
           .eq('user_id', userId)
           .eq('status', 'Pending')
           .order('id', { ascending: true })
-          .limit(1);
-        
-        if (newOrdersError || !newPendingOrders || newPendingOrders.length === 0) {
+          .limit(20);
+
+        if (ordersError) {
+          Logger.error('Orders fetch error', { userId, error: ordersError });
+          throw new AppError(500, `Failed to fetch orders: ${ordersError.message}`);
+        }
+
+        return (data || []).find((o) => {
+          const prop = Array.isArray(o.properties) ? o.properties[0] : o.properties;
+          return prop?.lot_type !== 'special';
+        });
+      };
+
+      let selectedOrder = await fetchNormalPendingOrder();
+
+      // If no pending orders, auto-generate the tier's default orders
+      if (!selectedOrder) {
+        await this.autoAssignDefaultOrders(userId, tier.order_limit);
+
+        selectedOrder = await fetchNormalPendingOrder();
+
+        if (!selectedOrder) {
           throw new AppError(400, 'No available properties in system. Contact admin.');
         }
-        
-        pendingOrders.push(newPendingOrders[0]);
       }
-
-      const selectedOrder = pendingOrders[0];
 
       // Step 5: Fetch property details
       const { data: property, error: propertyError } = await supabaseAdmin
@@ -286,7 +348,7 @@ export class OrderService {
       // Get user and tier info
       const { data: user, error: userError } = await supabaseAdmin
         .from('users')
-        .select('id, tier_id, total_orders')
+        .select('id, username, tier_id, total_orders, referrer_id')
         .eq('id', userId)
         .single();
 
@@ -300,19 +362,10 @@ export class OrderService {
         .eq('id', user.tier_id)
         .single();
 
-      // Check daily limit again
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const { count: todayCount } = await supabaseAdmin
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('status', 'Completed')
-        .gte('created_at', today.toISOString());
-
-      if ((todayCount || 0) >= (tier?.order_limit || 35)) {
-        throw new AppError(429, 'Daily limit reached');
+      // Check lifetime lot limit again (see the matching check in
+      // generateLot for why this is total_orders, not a daily count).
+      if ((user.total_orders || 0) >= (tier?.order_limit || 27)) {
+        throw new AppError(429, 'Lot limit reached');
       }
 
       // Determine if this is a special lot
@@ -325,21 +378,25 @@ export class OrderService {
       let walletDeduction = 0;
       
       if (isSpecialLot) {
-        // Special lot: 30% commission, deduct property price
-        commissionEarned = propertyPrice * 0.30;
+        // Special lot: 27% commission, deduct property price
+        commissionEarned = propertyPrice * 0.27;
         walletDeduction = propertyPrice;
         Logger.info('Processing special lot', { propertyPrice, commission: commissionEarned, deduction: walletDeduction });
       } else {
-        // Normal lot: Use tier commission rate (default 2.5%)
-        const commissionRate = Number(tier?.commission_rate || 2.5);
+        // Normal lot: Use tier commission rate (default 0.9%)
+        const commissionRate = Number(tier?.commission_rate || 0.9);
         commissionEarned = (propertyPrice * commissionRate) / 100;
         Logger.info('Processing normal lot', { propertyPrice, commissionRate, commission: commissionEarned });
       }
 
-      // Update order to Completed
+      // Update order to Completed. There is no separate `completed_at` column,
+      // and "today" stats/limits below filter on `created_at` — orders are
+      // batch-pre-created well before a user actually completes them, so we
+      // stamp `created_at` with the real completion time here or a lot
+      // finished today would never count as "today's" activity.
       const { error: updateOrderError } = await supabaseAdmin
         .from('orders')
-        .update({ status: 'Completed' })
+        .update({ status: 'Completed', created_at: new Date().toISOString() })
         .eq('id', orderId)
         .eq('status', 'Pending');
 
@@ -367,10 +424,28 @@ export class OrderService {
 
       // Calculate new balance
       // For normal lots: balance + commission
-      // For special lots: balance - propertyPrice + commission (net: balance - 70% of price)
+      // For special lots: balance - propertyPrice + commission (net: balance - 73% of price)
+      // This is allowed to go negative — e.g. price 10000, balance 5000,
+      // commission 2700 -> new balance -2300. The transaction still goes
+      // through; it's just flagged (see below) rather than blocked.
       const netChange = isSpecialLot ? (commissionEarned - walletDeduction) : commissionEarned;
       const newBalance = Number(wallet.balance) + netChange;
       const newTotalEarned = Number(wallet.total_earned) + commissionEarned;
+      const wentNegative = newBalance < 0;
+
+      if (wentNegative) {
+        // Flag the order that pushed the balance negative as Pending so it
+        // shows under the Pending tab in History. This is safe from being
+        // re-served as the user's "next lot" (which would let this
+        // already-paid-out order be submitted again) because the special-lot
+        // property fetch above explicitly excludes lot_type='special' from
+        // that generic pending-order pool. The marker lets AdminService
+        // auto-complete this specific order once the balance recovers.
+        await supabaseAdmin
+          .from('orders')
+          .update({ status: 'Pending', property_name: NEGATIVE_BALANCE_FLAG })
+          .eq('id', orderId);
+      }
 
       const { error: updateWalletError } = await supabaseAdmin
         .from('wallets')
@@ -391,14 +466,20 @@ export class OrderService {
         .update({ total_orders: (user.total_orders || 0) + 1 })
         .eq('id', userId);
 
-      Logger.info('Order submitted successfully', { 
-        userId, 
-        orderId, 
+      // Pay the referrer their 15% cut of the commission just earned, if any.
+      if (user.referrer_id) {
+        await this.payReferralBonus(user.referrer_id, commissionEarned, user.username);
+      }
+
+      Logger.info('Order submitted successfully', {
+        userId,
+        orderId,
         isSpecialLot,
         commission: commissionEarned,
         deduction: walletDeduction,
         netChange,
-        newBalance
+        newBalance,
+        wentNegative,
       });
 
       return {
@@ -406,6 +487,7 @@ export class OrderService {
         commission: commissionEarned,
         deduction: walletDeduction,
         net_change: netChange,
+        went_negative: wentNegative,
         new_balance: newBalance,
         is_special_lot: isSpecialLot,
       };
@@ -515,11 +597,16 @@ export class OrderService {
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
 
+      // Commission is earned (and already paid into the wallet) the moment
+      // an order is submitted, even if it got left `Pending` under
+      // NEGATIVE_BALANCE_FLAG because it pushed the balance negative — so
+      // those still count as "today's earnings" too, not just orders that
+      // ended up `Completed`.
       const { data: todayOrders, count: todayCount } = await supabaseAdmin
         .from('orders')
         .select('commission', { count: 'exact' })
         .eq('user_id', userId)
-        .eq('status', 'Completed')
+        .or(`status.eq.Completed,and(status.eq.Pending,property_name.eq.${NEGATIVE_BALANCE_FLAG})`)
         .gte('created_at', todayISO);
 
       const todayEarnings = todayOrders?.reduce(
@@ -537,7 +624,9 @@ export class OrderService {
       return {
         daily: {
           completed: todayCount || 0,
-          remaining: tier.order_limit - (todayCount || 0),
+          // order_limit is a lifetime cap on total_orders, not a daily one
+          // (see OrderService.generateLot) — "remaining" reflects that.
+          remaining: tier.order_limit - (user.total_orders || 0),
           limit: tier.order_limit,
           earnings: todayEarnings,
         },
@@ -597,7 +686,7 @@ export class OrderService {
         .eq('id', user?.tier_id || 1)
         .single();
 
-      const commissionRate = tier?.commission_rate || 2.5;
+      const commissionRate = tier?.commission_rate || 0.9;
       Logger.info('Using commission rate', { commissionRate });
 
       // Create orders cycling through properties

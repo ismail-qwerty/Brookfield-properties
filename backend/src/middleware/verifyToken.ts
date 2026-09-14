@@ -255,7 +255,7 @@ export const verifyWalletPassword = async (
     if (!wallet_password) {
       return ResponseUtil.error(
         res,
-        'Wallet password is required for this operation',
+        'Withdrawal password is required for this operation',
         400
       );
     }
@@ -272,7 +272,7 @@ export const verifyWalletPassword = async (
         userId: user.id,
         username: user.username,
       });
-      return ResponseUtil.error(res, 'Invalid wallet password', 401);
+      return ResponseUtil.error(res, 'Invalid withdrawal password', 401);
     }
 
     Logger.debug('Wallet password verified', { userId: user.id });

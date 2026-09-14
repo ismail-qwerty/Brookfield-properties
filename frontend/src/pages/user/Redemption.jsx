@@ -44,11 +44,11 @@ export default function Redemption() {
       const numAmount = parseFloat(amount);
 
       if (numAmount < (user?.min_withdrawal || 50)) {
-        throw new Error(`Minimum withdrawal is VIEWS ${(user?.min_withdrawal || 50).toFixed(2)}`);
+        throw new Error(`Minimum withdrawal is $${(user?.min_withdrawal || 50).toFixed(2)}`);
       }
 
       if (numAmount > (user?.max_withdrawal || 500)) {
-        throw new Error(`Maximum withdrawal is VIEWS ${(user?.max_withdrawal || 500).toFixed(2)}`);
+        throw new Error(`Maximum withdrawal is $${(user?.max_withdrawal || 500).toFixed(2)}`);
       }
 
       if (numAmount > balance) {
@@ -81,39 +81,61 @@ export default function Redemption() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
-      <div className="bg-gradient-to-b from-[#5DBDAE] to-[#7DCCC4] py-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <h1 className="text-4xl font-bold text-white text-center mb-4">Redemption</h1>
-          <div className="flex items-center justify-center gap-2 text-white text-sm">
-            <Link to="/dashboard" className="hover:underline">Dashboard</Link>
-            <span>|</span>
-            <span>Redemption</span>
+    <div className="bg-white">
+      <div className="page-head">
+        <div className="wrap">
+          <div className="flex items-center gap-3 text-[12px] text-white/50 mb-5">
+            <Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
+            <span>/</span>
+            <span className="text-white/80">Withdraw</span>
           </div>
+          <h1 className="display text-white">Withdraw Funds</h1>
         </div>
       </div>
 
-      {/* Content Section */}
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        <div className="bg-white rounded-lg shadow-sm p-10">
-          {/* Balance Display */}
-          <div className="mb-8">
-            <h2 className="text-xl text-gray-700 font-normal mb-2">
-              {user?.username} - Account Balance (VIEWS)
-            </h2>
-            <div className="text-3xl font-bold text-gray-900">{balance.toFixed(2)}</div>
+      <div className="wrap-narrow section-tight">
+        {/* Balance */}
+        <div className="border-b pb-8 mb-12" style={{ borderColor: 'var(--rule)' }}>
+          <div className="stat-label">Available Balance &middot; {user?.username}</div>
+          <div className="stat-value">${balance.toFixed(2)}</div>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-10">
+            <div className="flex items-end justify-between gap-4 mb-2">
+              <label className="label mb-0">Amount</label>
+              <button
+                type="button"
+                onClick={handleAllAmount}
+                className="link-quiet text-[12px] uppercase tracking-wider"
+              >
+                Withdraw all
+              </button>
+            </div>
+            <input
+              type="number"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="field text-[28px] font-serif"
+              placeholder="0.00"
+              required
+            />
           </div>
 
-          {/* Set Amount Section */}
-          <div className="mb-8">
-            <h3 className="text-lg text-gray-700 mb-4">Set Amount</h3>
-            <div className="grid grid-cols-3 gap-4">
+          <div className="mb-12">
+            <div className="eyebrow mb-4">Quick Select</div>
+            <div className="grid grid-cols-3 gap-3">
               {quickAmounts.map((val) => (
                 <button
                   key={val}
+                  type="button"
                   onClick={() => handleQuickSelect(val)}
-                  className="py-3 px-4 border-2 border-blue-500 text-blue-500 rounded hover:bg-blue-50 font-medium transition-colors"
+                  className={`py-3 text-[14px] border transition-colors tnum ${
+                    String(val) === String(amount)
+                      ? 'bg-black text-white border-black'
+                      : 'border-gray-300 hover:border-black'
+                  }`}
                 >
                   {val}
                 </button>
@@ -121,77 +143,53 @@ export default function Redemption() {
             </div>
           </div>
 
-          {/* Custom Amount Input */}
-          <form onSubmit={handleSubmit}>
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2">Amount other than above stated?</label>
-              <div className="flex gap-3">
-                <input
-                  type="number"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter amount (Views)"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={handleAllAmount}
-                  className="px-8 py-3 border-2 border-blue-500 text-blue-500 rounded hover:bg-blue-50 font-medium"
-                >
-                  All
-                </button>
-              </div>
-            </div>
-
-            {/* Redemption Password */}
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2">Redemption Password</label>
+          <div className="space-y-8 mb-10">
+            <div>
+              <label className="label">Withdrawal Password</label>
               <input
                 type="password"
                 value={walletPassword}
                 onChange={(e) => setWalletPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter redemption password"
+                className="field"
+                placeholder="Enter withdrawal password"
                 required
               />
             </div>
 
-            {/* Wallet Address */}
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-2">Wallet Address</label>
+            <div>
+              <label className="label">Wallet Address</label>
               <input
                 type="text"
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="field"
                 placeholder="Enter wallet address"
                 required
               />
             </div>
+          </div>
 
-            {message.text && (
-              <div
-                className={`mb-6 p-4 rounded ${
-                  message.type === 'success'
-                    ? 'bg-green-50 text-green-800 border border-green-200'
-                    : 'bg-red-50 text-red-800 border border-red-200'
-                }`}
-              >
-                {message.text}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium disabled:opacity-50"
+          {message.text && (
+            <div
+              className={`mb-8 px-4 py-3 text-[14px] border-l-2 ${
+                message.type === 'success'
+                  ? 'border-black bg-gray-100 text-black'
+                  : 'border-red-600 bg-red-50 text-red-800'
+              }`}
             >
-              {loading ? 'Processing...' : 'Submit Withdrawal Request'}
-            </button>
-          </form>
-        </div>
+              {message.text}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} className="btn-solid w-full">
+            {loading ? 'Processing…' : 'Submit Withdrawal Request'}
+          </button>
+
+          <p className="text-[12px] mt-6" style={{ color: 'var(--ink-45)' }}>
+            Withdrawal requests are reviewed before funds are released. Confirm your
+            wallet address carefully — transfers cannot be reversed.
+          </p>
+        </form>
       </div>
     </div>
   );

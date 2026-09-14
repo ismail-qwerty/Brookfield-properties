@@ -132,7 +132,12 @@ export default function UpdateUser() {
       console.log('Balance adjustment:', updateData.balance_adjustment);
       const response = await api.admin.updateUser(id, updateData);
       console.log('Update response:', response.data);
-      setSuccess('User updated successfully');
+      const resolvedCount = response.data?.data?.resolved_order_ids?.length || 0;
+      setSuccess(
+        resolvedCount > 0
+          ? `User updated successfully. ${resolvedCount} pending order(s) were completed now that the balance is no longer negative.`
+          : 'User updated successfully'
+      );
       // Refresh user data to show new balance
       await fetchUserData();
       // Clear balance adjustment field
@@ -159,7 +164,7 @@ export default function UpdateUser() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Update Member</h1>
         <p className="text-sm text-gray-600 mt-1">
-          <Link to="/administration" className="text-blue-600 hover:underline">Home</Link>
+          <Link to="/administration" className="link-quiet">Home</Link>
           <span className="mx-2">/</span>
           <span>Update Member</span>
         </p>
@@ -172,20 +177,20 @@ export default function UpdateUser() {
       )}
 
       {success && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+        <div className="mb-6 p-4 bg-gray-100 border border-black text-black">
           {success}
         </div>
       )}
 
       <form onSubmit={handleSubmit}>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="bg-blue-600 px-6 py-4">
+          <div className="bg-black px-8 py-6">
             <h2 className="text-xl font-bold text-white">Member Data</h2>
           </div>
 
           <div className="p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+              <label className="label">Username</label>
               <input
                 type="text"
                 name="username"
@@ -196,43 +201,43 @@ export default function UpdateUser() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Complete Name</label>
+              <label className="label">Complete Name</label>
               <input
                 type="text"
                 name="full_name"
                 value={formData.full_name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Parent ID</label>
+              <label className="label">Parent ID</label>
               <input
                 type="text"
                 name="parent_id"
                 value={formData.parent_id}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+              <label className="label">Phone Number</label>
               <input
                 type="tel"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 required
               />
             </div>
 
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-300">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Current Balance: <span className="text-primary-600 font-bold">VIEWS {formData.current_balance.toFixed(2)}</span>
+              <label className="label">
+                Current Balance: <span className="text-primary-600 font-bold">${formData.current_balance.toFixed(2)}</span>
               </label>
               <label className="block text-sm font-medium text-gray-700 mb-2 mt-3">Add/Subtract Balance</label>
               <input
@@ -242,19 +247,19 @@ export default function UpdateUser() {
                 onChange={handleChange}
                 step="0.01"
                 placeholder="Enter positive to add, negative to subtract (e.g., 100 or -50)"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
               />
               {formData.balance_adjustment && (
                 <p className="text-sm mt-2">
-                  New Balance: <span className="font-bold text-green-600">
-                    VIEWS {(parseFloat(formData.current_balance) + parseFloat(formData.balance_adjustment || 0)).toFixed(2)}
+                  New Balance: <span className="font-bold text-black">
+                    ${(parseFloat(formData.current_balance) + parseFloat(formData.balance_adjustment || 0)).toFixed(2)}
                   </span>
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Credibility</label>
+              <label className="label">Credibility</label>
               <input
                 type="number"
                 name="credibility"
@@ -262,37 +267,37 @@ export default function UpdateUser() {
                 onChange={handleChange}
                 min="0"
                 max="100"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <label className="label">Password</label>
               <input
                 type="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="Leave blank to keep current password"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Wallet Password</label>
+              <label className="label">Withdrawal Password</label>
               <input
                 type="password"
                 name="wallet_password"
                 value={formData.wallet_password}
                 onChange={handleChange}
-                placeholder="Leave blank to keep current wallet password"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Leave blank to keep current withdrawal password"
+                className="input-field"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Withdrawal</label>
+              <label className="label">Minimum Withdrawal</label>
               <input
                 type="number"
                 name="min_withdrawal"
@@ -300,13 +305,13 @@ export default function UpdateUser() {
                 onChange={handleChange}
                 step="0.01"
                 min="0"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Withdrawal</label>
+              <label className="label">Maximum Withdrawal</label>
               <input
                 type="number"
                 name="max_withdrawal"
@@ -314,18 +319,18 @@ export default function UpdateUser() {
                 onChange={handleChange}
                 step="0.01"
                 min="0"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">User Status</label>
+              <label className="label">User Status</label>
               <select
                 name="user_status"
                 value={formData.user_status}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 required
               >
                 <option value="Active">Active</option>
@@ -334,12 +339,12 @@ export default function UpdateUser() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Wallet Status</label>
+              <label className="label">Wallet Status</label>
               <select
                 name="wallet_status"
                 value={formData.wallet_status}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 required
               >
                 <option value="Active">Active</option>
@@ -348,12 +353,12 @@ export default function UpdateUser() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">User Type</label>
+              <label className="label">User Type</label>
               <select
                 name="user_type"
                 value={formData.user_type}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 required
               >
                 <option value="User">User</option>
@@ -363,7 +368,7 @@ export default function UpdateUser() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Reference Code</label>
+              <label className="label">Reference Code</label>
               <input
                 type="text"
                 name="reference_code"
@@ -374,12 +379,12 @@ export default function UpdateUser() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Membership Level</label>
+              <label className="label">Membership Level</label>
               <select
                 name="tier_id"
                 value={formData.tier_id}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 required
               >
                 <option value="">Select Tier</option>

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
-import { LoadingSpinner } from '../../components/ui';
+import { LoadingSpinner, BrandLogo } from '../../components/ui';
 
 export default function Register() {
   const STATIC_URL = import.meta.env.VITE_STATIC_URL || '/static';
@@ -19,14 +19,39 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState({ checking: false, available: null });
+  const usernameCheckTimer = useRef(null);
+
+  const checkUsername = async (username) => {
+    setUsernameStatus({ checking: true, available: null });
+    try {
+      const { data } = await api.auth.checkUsername(username);
+      setUsernameStatus({ checking: false, available: data.data.available });
+    } catch {
+      setUsernameStatus({ checking: false, available: null });
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setError('');
+
+    if (name === 'username') {
+      setUsernameStatus({ checking: false, available: null });
+      clearTimeout(usernameCheckTimer.current);
+      const trimmed = value.trim();
+      if (trimmed.length >= 3) {
+        usernameCheckTimer.current = setTimeout(() => checkUsername(trimmed), 400);
+      }
+    }
   };
 
   const validateForm = () => {
+    if (usernameStatus.available === false) {
+      setError('That username is already taken. Please choose another.');
+      return false;
+    }
     if (formData.password !== formData.confirm_password) {
       setError('Passwords do not match');
       return false;
@@ -36,7 +61,7 @@ export default function Register() {
       return false;
     }
     if (formData.wallet_password.length < 6) {
-      setError('Wallet password must be at least 6 characters');
+      setError('Withdrawal password must be at least 6 characters');
       return false;
     }
     if (!formData.reference_code) {
@@ -82,48 +107,72 @@ export default function Register() {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden">
-      {/* Background Video Layer */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="auto"
-        className="absolute top-0 left-0 w-full h-full object-cover z-0"
-      >
-        <source src={`${STATIC_URL}/bg.mp4`} type="video/mp4" />
-      </video>
-      
-      {/* Dark Overlay */}
-      <div className="absolute top-0 left-0 w-full h-full bg-black/60 z-10"></div>
-      
-      {/* Content Layer */}
-      <div className="relative z-20 min-h-screen flex items-center justify-center px-4 py-12">
-        <div className="max-w-2xl w-full bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Create Account
-            </h1>
-            <p className="text-gray-600">Join Brookfield Properties today</p>
+    <div className="min-h-screen grid lg:grid-cols-[minmax(0,420px)_1fr]">
+      {/* Brand panel */}
+      <div className="relative hidden lg:block overflow-hidden bg-black">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-cover opacity-50"
+        >
+          <source src={`${STATIC_URL}/bg.mp4`} type="video/mp4" />
+        </video>
+
+        <div className="relative z-10 h-full flex flex-col justify-between p-12">
+          <Link to="/" className="inline-flex">
+            <BrandLogo textClassName="text-[16px]" />
+          </Link>
+
+          <div>
+            <h2 className="font-serif text-white text-[34px] leading-[1.15] mb-5">
+              Open your account.
+            </h2>
+            <p className="text-white/70 text-[15px] leading-relaxed">
+              A single place to manage your portfolio, track activity, and move
+              funds with confidence.
+            </p>
+          </div>
+
+          <p className="text-white/40 text-[12px]">
+            &copy; {new Date().getFullYear()} Blackstone
+          </p>
+        </div>
+      </div>
+
+      {/* Form panel */}
+      <div className="flex items-center justify-center px-6 py-16 md:px-16">
+        <div className="w-full max-w-[620px]">
+          <Link to="/" className="lg:hidden inline-flex mb-12">
+            <BrandLogo dark textClassName="text-[16px]" />
+          </Link>
+
+          <div className="mb-12">
+            <div className="eyebrow mb-4">Registration</div>
+            <h1 className="font-serif text-[38px] leading-tight mb-3">Create your account</h1>
+            <p className="text-[15px]" style={{ color: 'var(--ink-45)' }}>
+              All fields marked with an asterisk are required.
+            </p>
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="mb-8 border-l-2 border-red-600 bg-red-50 px-4 py-3 text-red-800 text-[14px]">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-              Registration successful! Redirecting to login...
+            <div className="mb-8 border-l-2 border-black bg-gray-100 px-4 py-3 text-black text-[14px]">
+              Registration successful. Redirecting to sign in…
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Username *
                 </label>
                 <input
@@ -136,9 +185,24 @@ export default function Register() {
                   required
                   disabled={loading}
                 />
+                {usernameStatus.checking && (
+                  <p className="text-[12px] mt-2" style={{ color: 'var(--ink-45)' }}>
+                    Checking availability…
+                  </p>
+                )}
+                {!usernameStatus.checking && usernameStatus.available === true && (
+                  <p className="text-[12px] mt-2 text-green-700">
+                    Username is available.
+                  </p>
+                )}
+                {!usernameStatus.checking && usernameStatus.available === false && (
+                  <p className="text-[12px] mt-2 text-red-600">
+                    Username is already taken.
+                  </p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Full Name *
                 </label>
                 <input
@@ -154,9 +218,9 @@ export default function Register() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Email Address *
                 </label>
                 <input
@@ -171,7 +235,7 @@ export default function Register() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Phone Number *
                 </label>
                 <input
@@ -187,9 +251,9 @@ export default function Register() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Password *
                 </label>
                 <input
@@ -205,7 +269,7 @@ export default function Register() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Confirm Password *
                 </label>
                 <input
@@ -223,8 +287,8 @@ export default function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Wallet Password *
+              <label className="label">
+                Withdrawal Password *
               </label>
               <input
                 type="password"
@@ -237,13 +301,13 @@ export default function Register() {
                 minLength={6}
                 disabled={loading}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                This password will be required for withdrawal requests
+              <p className="text-[12px] mt-2" style={{ color: 'var(--ink-45)' }}>
+                Required to authorise withdrawal requests.
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="label">
                 Reference Code *
               </label>
               <input
@@ -256,26 +320,30 @@ export default function Register() {
                 required
                 disabled={loading}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Registration requires a valid referral code
+              <p className="text-[12px] mt-2" style={{ color: 'var(--ink-45)' }}>
+                Enter the code you were invited with.
               </p>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading || success}
-              className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            >
-              {loading ? <LoadingSpinner size="sm" color="white" /> : 'Register'}
-            </button>
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={loading || success}
+                className="btn-solid w-full"
+              >
+                {loading ? <LoadingSpinner size="sm" color="white" /> : 'Create Account'}
+              </button>
+            </div>
           </form>
 
-          <p className="text-center mt-6 text-sm text-gray-600">
-            Already have an account?{' '}
-            <Link to="/user-login" className="text-primary-600 font-semibold hover:text-primary-700">
-              Sign In
-            </Link>
-          </p>
+          <div className="rule mt-12 pt-8">
+            <p className="text-[14px]" style={{ color: 'var(--ink-45)' }}>
+              Already have an account?{' '}
+              <Link to="/user-login" className="link-quiet" style={{ color: 'var(--ink)' }}>
+                Sign in
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -82,7 +82,7 @@ export const validateRedemptionLimits = async (
       });
       return ResponseUtil.error(
         res,
-        `Minimum withdrawal amount is VIEWS ${user.min_withdrawal.toFixed(2)}`,
+        `Minimum withdrawal amount is $${user.min_withdrawal.toFixed(2)}`,
         400
       );
     }
@@ -96,7 +96,7 @@ export const validateRedemptionLimits = async (
       });
       return ResponseUtil.error(
         res,
-        `Maximum withdrawal amount is VIEWS ${user.max_withdrawal.toFixed(2)}`,
+        `Maximum withdrawal amount is $${user.max_withdrawal.toFixed(2)}`,
         400
       );
     }
@@ -117,7 +117,7 @@ export const validateRedemptionLimits = async (
       });
       return ResponseUtil.error(
         res,
-        `Insufficient balance. Available: VIEWS ${(wallet?.balance || 0).toFixed(2)}`,
+        `Insufficient balance. Available: $${(wallet?.balance || 0).toFixed(2)}`,
         400
       );
     }

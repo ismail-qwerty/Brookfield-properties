@@ -24,28 +24,28 @@ export default function RechargeHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="bg-white">
       {/* Header Section */}
-      <div className="bg-gradient-to-b from-[#5DBDAE] to-[#7DCCC4] py-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <h1 className="text-4xl font-bold text-white text-center mb-4">Recharge History</h1>
-          <div className="flex items-center justify-center gap-2 text-white text-sm">
-            <Link to="/dashboard" className="hover:underline">Dashboard</Link>
-            <span>|</span>
-            <span>Recharge History</span>
+      <div className="page-head">
+        <div className="wrap">
+          <div className="flex items-center gap-3 text-[12px] text-white/50 mb-5">
+            <Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
+            <span>/</span>
+            <span className="text-white/80">Recharge History</span>
           </div>
+          <h1 className="display text-white">Recharge History</h1>
         </div>
       </div>
 
       {/* Content Section */}
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="wrap section-tight">
         <h2 className="text-2xl font-semibold text-gray-700 mb-6">
           Recent Recharges - {user?.username}
         </h2>
 
         {loading ? (
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b border-black"></div>
           </div>
         ) : recharges.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
@@ -59,7 +59,7 @@ export default function RechargeHistory() {
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">#</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Amount (VIEWS)</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Amount ($)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -89,25 +89,6 @@ export default function RechargeHistory() {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="bg-[#5DBDAE] mt-20 py-8">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-3 gap-8 text-white">
-            <div>
-              <h3 className="text-xl font-bold mb-4">BROOKFIELD<br/>PROPERTIES</h3>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Helpful Links</h4>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Account</h4>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Contact</h4>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

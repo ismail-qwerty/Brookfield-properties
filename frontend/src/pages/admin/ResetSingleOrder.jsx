@@ -85,7 +85,7 @@ export default function ResetSingleOrder() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Select Orders</h1>
           <p className="text-sm text-gray-600 mt-1">
-            <Link to="/administration" className="text-blue-600 hover:underline">Home</Link>
+            <Link to="/administration" className="link-quiet">Home</Link>
             <span className="mx-2">/</span>
             <span>Reset Orders</span>
           </p>
@@ -99,14 +99,14 @@ export default function ResetSingleOrder() {
       )}
 
       {success && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+        <div className="mb-6 p-4 bg-gray-100 border border-black text-black">
           {success}
         </div>
       )}
 
       <form onSubmit={handleSubmit}>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
-          <div className="bg-blue-600 px-6 py-4">
+          <div className="bg-black px-8 py-6">
             <h2 className="text-xl font-bold text-white">Select Exactly Three Orders</h2>
           </div>
 
@@ -120,7 +120,7 @@ export default function ResetSingleOrder() {
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value)}
                 min="0"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input-field"
                 placeholder="Enter order number after which these orders will be received"
                 required
               />
@@ -184,7 +184,7 @@ export default function ResetSingleOrder() {
                         {lot.name || lot.title}
                       </td>
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        VIEWS {lot.value || lot.price}
+                        ${lot.value || lot.price}
                       </td>
                     </tr>
                   );

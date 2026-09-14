@@ -15,8 +15,8 @@ export default function Memberships() {
   
   const [formData, setFormData] = useState({
     name: '',
-    order_limit: 35,
-    commission_rate: 0.50,
+    order_limit: 27,
+    commission_rate: 0.9,
   });
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export default function Memberships() {
     setLoading(true);
     try {
       const { data } = await api.admin.getMemberships();
-      setMemberships(data.memberships || []);
+      setMemberships(data.data?.memberships || []);
     } catch (err) {
       console.error('Failed to fetch memberships:', err);
     } finally {
@@ -38,8 +38,8 @@ export default function Memberships() {
   const handleAddMembership = () => {
     setFormData({
       name: '',
-      order_limit: 35,
-      commission_rate: 0.50,
+      order_limit: 27,
+      commission_rate: 0.9,
     });
     setError('');
     setShowAddModal(true);
@@ -156,7 +156,7 @@ export default function Memberships() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        <span className="text-2xl font-bold text-green-600">{membership.commission_rate}%</span>
+                        <span className="text-2xl font-bold text-black">{membership.commission_rate}%</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -174,7 +174,7 @@ export default function Memberships() {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleEditMembership(membership)}
-                          className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                          className="link-quiet text-[13px]"
                         >
                           Edit
                         </button>
@@ -200,7 +200,7 @@ export default function Memberships() {
 
       {/* Tier Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
+        <div className="bg-black rounded-xl p-6 text-white">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold opacity-90">Total Tiers</h3>
             <span className="text-3xl">⭐</span>
@@ -209,7 +209,7 @@ export default function Memberships() {
           <p className="text-sm opacity-75 mt-2">Configured membership levels</p>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
+        <div className="bg-black rounded-xl p-6 text-white">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold opacity-90">Total Members</h3>
             <span className="text-3xl">👥</span>
@@ -220,7 +220,7 @@ export default function Memberships() {
           <p className="text-sm opacity-75 mt-2">Active platform users</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
+        <div className="bg-black rounded-xl p-6 text-white">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold opacity-90">Avg Commission</h3>
             <span className="text-3xl">📊</span>
@@ -250,7 +250,7 @@ export default function Memberships() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Tier Name
                 </label>
                 <input
@@ -266,7 +266,7 @@ export default function Memberships() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Daily Order Limit
                 </label>
                 <input
@@ -276,14 +276,14 @@ export default function Memberships() {
                   onChange={handleFormChange}
                   min="1"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="35"
+                  placeholder="27"
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">Maximum tasks user can complete per day</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="label">
                   Commission Rate (%)
                 </label>
                 <input
@@ -306,8 +306,8 @@ export default function Memberships() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-900">
                   <strong>Example:</strong> With {formData.commission_rate}% commission rate, 
-                  a VIEWS 66.00 property will earn{' '}
-                  <strong>VIEWS {((66 * formData.commission_rate) / 100).toFixed(2)}</strong> per task
+                  a $66.00 property will earn{' '}
+                  <strong>${((66 * formData.commission_rate) / 100).toFixed(2)}</strong> per task
                 </p>
               </div>
 

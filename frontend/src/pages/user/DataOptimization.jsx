@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
 
@@ -19,25 +19,33 @@ export default function DataOptimization() {
 
   useEffect(() => {
     fetchStats();
-    
+
     // Check for success message from navigation
     if (location.state?.success && location.state?.message) {
       setSuccessMessage(location.state.message);
       // Clear the state
       navigate(location.pathname, { replace: true, state: {} });
-      
+
       // Auto-hide after 5 seconds
       setTimeout(() => setSuccessMessage(''), 5000);
     }
+
+    // "Today's Earnings" / "Orders Today" are computed server-side from
+    // each order's timestamp, so they naturally reset once a new day
+    // starts — but only the NEXT time this page fetches. Without polling,
+    // a tab left open across midnight (or just sitting idle a while) would
+    // keep showing yesterday's numbers until manually reloaded.
+    const interval = setInterval(fetchStats, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchStats = async () => {
     try {
       const response = await api.user.getProfile();
       const profileData = response.data.data;
-      
-      const tierLimit = profileData?.membership?.order_limit || 35;
-      
+
+      const tierLimit = profileData?.membership?.order_limit || 27;
+
       setStats({
         balance: profileData?.wallet?.balance || 0,
         todayEarnings: profileData?.today_earnings || 0,
@@ -56,210 +64,113 @@ export default function DataOptimization() {
     try {
       const response = await api.user.generateLots();
       const data = response.data.data;
-      
+
       // Navigate to submit order page with order data
-      navigate('/submit-order', { 
-        state: { 
-          orderData: data 
-        } 
+      navigate('/submit-order', {
+        state: {
+          orderData: data,
+        },
       });
     } catch (err) {
-      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to generate lots';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to generate analyst reviews';
       setError(errorMsg);
       console.error('Generate lots error:', err.response?.data);
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen" style={{ backgroundColor: '#000000' }}>
-      {/* Header with Navigation */}
-      <header className="bg-white py-4 shadow-sm">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold" style={{ letterSpacing: '0.5px' }}>
-                BROOKFIELD<br/>PROPERTIES
-              </h1>
-            </div>
-            <nav className="flex items-center gap-8">
-              <Link to="/dashboard" className="text-gray-700 hover:text-gray-900 font-medium">Dashboard</Link>
-              <Link to="/data-optimization" className="text-gray-700 hover:text-gray-900 font-medium">Generate Lots</Link>
-              <Link to="/history" className="text-gray-700 hover:text-gray-900 font-medium">History</Link>
-              <Link to="/profile" className="text-gray-700 hover:text-gray-900 font-medium">Profile</Link>
-              <Link to="/wallet" className="text-gray-700 hover:text-gray-900 font-medium">Wallet</Link>
-              <button onClick={() => window.dispatchEvent(new Event('open-chat-widget'))} className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">
-                Contact
-              </button>
-            </nav>
-          </div>
-        </div>
-      </header>
+  const formatCurrency = (amount) => `${amount < 0 ? '-' : ''}$${Math.abs(amount).toFixed(2)}`;
 
-      {/* Alert Banner */}
+  const metrics = [
+    { label: 'Account Balance', value: formatCurrency(stats.balance) },
+    { label: "Today's Earnings", value: formatCurrency(stats.todayEarnings) },
+    { label: 'Orders Today', value: stats.ordersToday },
+    { label: 'Lot Limit', value: stats.totalOrders },
+  ];
+
+  return (
+    <div className="bg-black text-white">
+      {/* Masthead */}
+      <section className="wrap pt-10 pb-8 md:pt-12 md:pb-10">
+        <div className="eyebrow-light mb-3">Data Optimization</div>
+        <h1 className="font-serif text-[30px] md:text-[42px] leading-tight text-white mb-3">
+          Welcome back, {user?.username}
+        </h1>
+        <p className="text-white/60 text-[14px] md:text-[15px] max-w-xl">
+          Review your position, then generate a new set of analyst reviews for submission.
+        </p>
+      </section>
+
+      {/* Low balance notice */}
       {showAlert && stats.balance < 0 && (
-        <div className="container mx-auto px-4 mt-8">
-          <div className="max-w-4xl mx-auto bg-yellow-100 border border-yellow-300 rounded-lg p-4 flex items-start justify-between">
-            <div className="flex items-start gap-3">
-              <i className="fa fa-exclamation-circle text-yellow-600 text-xl mt-1"></i>
-              <div>
-                <h3 className="font-bold text-gray-900 mb-1">Low Balance</h3>
-                <p className="text-gray-800">Your account balance is negative ${Math.abs(stats.balance).toFixed(2)} for next lot. Please contact support.</p>
-              </div>
+        <section className="wrap pb-6">
+          <div className="border-l-2 border-white bg-white/5 px-5 py-4 flex items-start justify-between gap-6">
+            <div>
+              <h2 className="text-[15px] text-white mb-1">Low Balance</h2>
+              <p className="text-[13px] text-white/60">
+                Your balance is ${Math.abs(stats.balance).toFixed(2)} short for the next
+                analyst review. Please contact support or add funds.
+              </p>
             </div>
-            <button onClick={() => setShowAlert(false)} className="text-gray-600 hover:text-gray-800 text-xl">
-              ×
+            <button
+              onClick={() => setShowAlert(false)}
+              aria-label="Dismiss"
+              className="text-white/50 hover:text-white text-xl leading-none transition-colors"
+            >
+              &times;
             </button>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Welcome Section */}
-      <section className="py-16" style={{
-        background: 'linear-gradient(135deg, #1a4d2e 0%, #0f2818 100%)'
-      }}>
-        <div className="container mx-auto px-4">
-          <h2 className="text-4xl font-bold text-white mb-3">
-            Welcome back, {user?.username}!
+      {/* Metrics */}
+      <section className="wrap pb-10">
+        <div className="grid grid-cols-2 lg:grid-cols-4 border-t border-l border-white/15">
+          {metrics.map((m) => (
+            <div key={m.label} className="border-r border-b border-white/15 px-5 py-5">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-white/45 mb-2">
+                {m.label}
+              </div>
+              <div className="font-serif text-[22px] md:text-[26px] leading-none tnum text-white">
+                {m.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Action */}
+      <section className="wrap pb-14">
+        <div className="border border-white/15 px-6 py-8 md:px-12 md:py-10 text-center">
+          <h2 className="font-serif text-[20px] md:text-[26px] text-white mb-3">
+            Generate your next analyst review
           </h2>
-          <p className="text-xl text-gray-200">
-            Monitor your funds, earnings, and orders at a glance.
+          <p className="text-white/55 text-[13px] max-w-md mx-auto mb-6">
+            A new optimisation run will be prepared and sent to the submission
+            step for your review.
           </p>
-        </div>
-      </section>
 
-      {/* Stats Cards */}
-      <section className="py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Account Balance */}
-            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center">
-                  <i className="fa fa-dollar text-xl" style={{ color: '#FFD700' }}></i>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-white">
-                    ${stats.balance.toFixed(2)}
-                  </div>
-                  <div className="text-sm text-gray-400">Account Balance</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Today's Earnings */}
-            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center">
-                  <i className="fa fa-line-chart text-blue-400 text-xl"></i>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-white">
-                    ${stats.todayEarnings.toFixed(2)}
-                  </div>
-                  <div className="text-sm text-gray-400">Today's Earnings</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Orders Today */}
-            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center">
-                  <i className="fa fa-check-square-o text-yellow-500 text-xl"></i>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-white">
-                    {stats.ordersToday}
-                  </div>
-                  <div className="text-sm text-gray-400">Orders Today</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Total Orders */}
-            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center">
-                  <i className="fa fa-list-ul text-blue-500 text-xl"></i>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-white">
-                    {stats.totalOrders}
-                  </div>
-                  <div className="text-sm text-gray-400">Total Orders</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Generate Button Section */}
-      <section className="py-8">
-        <div className="container mx-auto px-4 text-center">
           <button
             onClick={handleGenerateLots}
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-12 py-4 rounded-lg shadow-xl text-lg inline-flex items-center gap-3 disabled:opacity-50 transition-all"
+            className="btn bg-white text-black hover:bg-white/80 disabled:opacity-40"
           >
-            <i className="fa fa-cogs text-xl"></i>
-            <span>{loading ? 'Processing...' : 'Generate Lots'}</span>
+            {loading ? 'Processing…' : 'Generate Analyst Reviews'}
           </button>
+
+          {successMessage && (
+            <div className="mt-6 max-w-lg mx-auto border-l-2 border-white bg-white/5 px-4 py-3 text-[13px] text-white text-left">
+              {successMessage}
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-6 max-w-lg mx-auto border-l-2 border-red-500 bg-red-500/10 px-4 py-3 text-[13px] text-red-200 text-left">
+              {error}
+            </div>
+          )}
         </div>
       </section>
-
-      {/* Messages */}
-      {successMessage && (
-        <div className="container mx-auto px-4 pb-4">
-          <div className="max-w-2xl mx-auto bg-green-50 border border-green-200 rounded-lg p-4 text-center text-green-700">
-            <i className="fa fa-check-circle mr-2"></i>
-            {successMessage}
-          </div>
-        </div>
-      )}
-      
-      {error && (
-        <div className="container mx-auto px-4 pb-8">
-          <div className="max-w-2xl mx-auto bg-red-50 border border-red-200 rounded-lg p-4 text-center text-red-700">
-            <i className="fa fa-exclamation-circle mr-2"></i>
-            {error}
-          </div>
-        </div>
-      )}
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12 mt-12 border-t border-gray-800">
-        <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
-            <h3 className="text-xl font-bold mb-4">BROOKFIELD<br/>PROPERTIES</h3>
-            <p className="text-sm text-gray-400">
-              Brookfield Properties — trusted real estate & services. Manage your account, wallet and orders from your dashboard.
-            </p>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-3">Helpful Links</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/recharge" className="hover:text-white">› Recharge</Link></li>
-              <li><Link to="/redemption" className="hover:text-white">› Redeem</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-3">Account</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/dashboard" className="hover:text-white">› Dashboard</Link></li>
-              <li><Link to="/data-optimization" className="hover:text-white">› Generate Lots</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-3">Contact</h4>
-            <p className="text-sm text-gray-400">455 West Orchard Street<br/>Kings Mountain, NC 28086<br/>Phone: (272) 211-7370</p>
-          </div>
-        </div>
-        <div className="border-t border-gray-800 mt-8 pt-6 text-center text-sm text-gray-400 container mx-auto px-4">
-          <p>© 2025 Brookfield Properties. All Rights Reserved.</p>
-        </div>
-      </footer>
     </div>
   );
 }

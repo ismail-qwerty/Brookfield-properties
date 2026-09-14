@@ -31,9 +31,7 @@ router.put('/profile', (req, res) => {
  * @desc    Get wallet balance and transaction summary
  * @access  Private
  */
-router.get('/wallet', (req, res) => {
-  res.json({ message: 'Wallet endpoint - to be implemented' });
-});
+router.get('/wallet', UserController.getWallet);
 
 /**
  * @route   GET /api/v1/users/orders

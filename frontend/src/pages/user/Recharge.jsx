@@ -59,79 +59,75 @@ export default function Recharge() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
-      <div className="bg-gradient-to-b from-[#5DBDAE] to-[#7DCCC4] py-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <h1 className="text-4xl font-bold text-white text-center mb-4">Add Funds</h1>
-          <div className="flex items-center justify-center gap-2 text-white text-sm">
-            <Link to="/dashboard" className="hover:underline">Dashboard</Link>
-            <span>|</span>
-            <span>Recharge</span>
+    <div className="bg-white">
+      <div className="page-head">
+        <div className="wrap">
+          <div className="flex items-center gap-3 text-[12px] text-white/50 mb-5">
+            <Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
+            <span>/</span>
+            <span className="text-white/80">Add Funds</span>
           </div>
+          <h1 className="display text-white">Add Funds</h1>
         </div>
       </div>
 
-      {/* Content Section */}
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        <div className="bg-white rounded-lg shadow-sm p-10">
-          {/* Balance Display */}
-          <div className="mb-8">
-            <h2 className="text-xl text-gray-700 font-normal mb-2">
-              Account Balance - {user?.username}
-            </h2>
-            <div className="text-lg text-gray-600">{balance.toFixed(2)} VIEWS</div>
+      <div className="wrap-narrow section-tight">
+        {/* Balance */}
+        <div className="border-b pb-8 mb-12" style={{ borderColor: 'var(--rule)' }}>
+          <div className="stat-label">Account Balance &middot; {user?.username}</div>
+          <div className="stat-value">${balance.toFixed(2)}</div>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-10">
+            <label className="label">Amount to add</label>
+            <input
+              type="number"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="field text-[28px] font-serif"
+              placeholder="0.00"
+              required
+            />
           </div>
 
-          {/* Add Funds Amount Section */}
-          <form onSubmit={handleSubmit}>
-            <div className="mb-8">
-              <h3 className="text-lg text-gray-700 mb-4">Add Funds Amount</h3>
-              <input
-                type="number"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6"
-                placeholder="Enter amount"
-                required
-              />
-              
-              <div className="grid grid-cols-3 gap-4">
-                {quickAmounts.map((val) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => handleQuickSelect(val)}
-                    className="py-3 px-4 border-2 border-blue-500 text-blue-500 rounded hover:bg-blue-50 font-medium transition-colors"
-                  >
-                    {val}
-                  </button>
-                ))}
-              </div>
+          <div className="mb-12">
+            <div className="eyebrow mb-4">Quick Select</div>
+            <div className="grid grid-cols-3 gap-3">
+              {quickAmounts.map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => handleQuickSelect(val)}
+                  className={`py-3 text-[14px] border transition-colors tnum ${
+                    String(val) === String(amount)
+                      ? 'bg-black text-white border-black'
+                      : 'border-gray-300 hover:border-black'
+                  }`}
+                >
+                  {val}
+                </button>
+              ))}
             </div>
+          </div>
 
-            {message.text && (
-              <div
-                className={`mb-6 p-4 rounded ${
-                  message.type === 'success'
-                    ? 'bg-green-50 text-green-800 border border-green-200'
-                    : 'bg-red-50 text-red-800 border border-red-200'
-                }`}
-              >
-                {message.text}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-8 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium disabled:opacity-50"
+          {message.text && (
+            <div
+              className={`mb-8 px-4 py-3 text-[14px] border-l-2 ${
+                message.type === 'success'
+                  ? 'border-black bg-gray-100 text-black'
+                  : 'border-red-600 bg-red-50 text-red-800'
+              }`}
             >
-              {loading ? 'Processing...' : 'Add Funds'}
-            </button>
-          </form>
-        </div>
+              {message.text}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} className="btn-solid w-full sm:w-auto">
+            {loading ? 'Processing…' : 'Add Funds'}
+          </button>
+        </form>
       </div>
     </div>
   );

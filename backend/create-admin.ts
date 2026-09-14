@@ -40,8 +40,8 @@ async function createAdmin() {
     await supabase.from('membership_levels').insert({
       id: 1,
       name: 'Silver',
-      order_limit: 35,
-      commission_rate: 0.50,
+      order_limit: 27,
+      commission_rate: 0.9,
     });
   }
 
