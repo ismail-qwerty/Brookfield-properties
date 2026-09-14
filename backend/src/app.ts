@@ -59,6 +59,22 @@ app.use(`/api/${ENV.API_VERSION}/admin`, adminRoutes);
 app.use(`/api/${ENV.API_VERSION}/chat`, chatRoutes);
 app.use(`/api/${ENV.API_VERSION}/admin/special-lots`, specialLotsRoutes);
 
+// In production this one Node process serves the built frontend too, so the
+// site works behind a single CloudPanel Node.js app/port with no separate
+// static host. The frontend dev server (Vite) handles this itself locally.
+if (ENV.NODE_ENV === 'production') {
+  const frontendDist = path.join(__dirname, '..', '..', 'frontend', 'dist');
+
+  app.use(express.static(frontendDist, { maxAge: '1y', etag: true }));
+
+  app.get('*', (req: Request, res: Response, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/static/') || req.path === '/health') {
+      return next();
+    }
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
+
 app.use((req: Request, res: Response) => {
   res.status(404).json({
     success: false,
