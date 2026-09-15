@@ -1,27 +1,43 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
 
+const PAGE_SIZE = 10;
+
 export default function History() {
-  const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState('All');
   const [orders, setOrders] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const filters = ['All', 'Pending', 'Completed', 'Undone'];
+  // 'Undone' isn't a status any order can actually have — orders are only
+  // ever 'Pending' or 'Completed' — so it stayed off this list rather than
+  // being a filter tab that's permanently empty.
+  const filters = ['All', 'Pending', 'Completed'];
 
   useEffect(() => {
     fetchOrders();
-  }, [activeFilter]);
+  }, [activeFilter, page]);
+
+  const selectFilter = (filter) => {
+    setActiveFilter(filter);
+    setPage(1);
+  };
 
   const fetchOrders = async () => {
     setLoading(true);
     try {
       const { data } = await api.user.getOrderHistory(
-        activeFilter === 'All' ? undefined : activeFilter
+        activeFilter === 'All' ? undefined : activeFilter,
+        page,
+        PAGE_SIZE
       );
-      setOrders(data.data?.orders || data.orders || []);
+      const payload = data.data || data;
+      setOrders(payload?.orders || []);
+      setTotalPages(payload?.pagination?.totalPages || 1);
+      setTotal(payload?.pagination?.total || 0);
     } catch (err) {
       console.error('Failed to fetch orders:', err);
       console.error('Error response:', err.response?.data);
@@ -50,7 +66,7 @@ export default function History() {
           {filters.map((filter) => (
             <button
               key={filter}
-              onClick={() => setActiveFilter(filter)}
+              onClick={() => selectFilter(filter)}
               className={`relative py-4 text-[13px] uppercase tracking-wider transition-colors ${
                 activeFilter === filter
                   ? 'text-black after:absolute after:left-0 after:bottom-[-1px] after:h-[2px] after:w-full after:bg-black'
@@ -76,71 +92,95 @@ export default function History() {
             </Link>
           </div>
         ) : (
-          <ul>
-            {orders.map((order) => (
-              <li
-                key={order.id}
-                className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-8 items-start py-8 border-b"
-                style={{ borderColor: 'var(--rule)' }}
-              >
-                <div className="md:col-span-2 text-[12px] tnum" style={{ color: 'var(--ink-45)' }}>
-                  {formatDate(order.created_at)}
-                </div>
-
-                <div className="md:col-span-1">
-                  <img
-                    src={order.properties?.image_url || '/placeholder.jpg'}
-                    alt=""
-                    className="w-14 h-14 object-cover"
-                    onError={(e) => {
-                      e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23e5e7eb" width="64" height="64"/%3E%3C/svg%3E';
-                    }}
-                  />
-                </div>
-
-                <div className="md:col-span-5">
-                  <h3 className="text-[18px] mb-2">
-                    {order.properties?.name || 'Property'}
-                  </h3>
-                  <div className="text-[12px] tracking-widest" style={{ color: 'var(--ink-25)' }}>
-                    ★★★★★
+          <>
+            <ul>
+              {orders.map((order) => (
+                <li
+                  key={order.id}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-8 items-start py-8 border-b"
+                  style={{ borderColor: 'var(--rule)' }}
+                >
+                  <div className="md:col-span-2 text-[12px] tnum" style={{ color: 'var(--ink-45)' }}>
+                    {formatDate(order.created_at)}
                   </div>
-                </div>
 
-                <div className="md:col-span-2">
-                  <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
-                    Amount
+                  <div className="md:col-span-1">
+                    <img
+                      src={order.properties?.image_url || '/placeholder.jpg'}
+                      alt=""
+                      className="w-14 h-14 object-cover"
+                      onError={(e) => {
+                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23e5e7eb" width="64" height="64"/%3E%3C/svg%3E';
+                      }}
+                    />
                   </div>
-                  <div className="text-[15px] tnum">
-                    {parseFloat(order.properties?.value || 0).toFixed(2)}
-                  </div>
-                </div>
 
-                <div className="md:col-span-1">
-                  <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
-                    Comm.
+                  <div className="md:col-span-6">
+                    <h3 className="text-[18px]">
+                      {order.properties?.name || 'Property'}
+                    </h3>
                   </div>
-                  <div className="text-[15px] tnum">
-                    {parseFloat(order.commission || 0).toFixed(2)}
-                  </div>
-                </div>
 
-                <div className="md:col-span-1 md:text-right">
-                  <span
-                    className={`inline-block px-3 py-1 text-[11px] tracking-wide border ${
-                      order.status === 'Completed'
-                        ? 'bg-black text-white border-black'
-                        : order.status === 'Pending'
-                        ? 'bg-white text-black border-black'
-                        : 'bg-gray-100 text-gray-500 border-gray-300'
-                    }`}
+                  <div className="md:col-span-1">
+                    <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
+                      Amount
+                    </div>
+                    <div className="text-[15px] tnum">
+                      ${parseFloat(order.properties?.value || 0).toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-1">
+                    <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
+                      Comm.
+                    </div>
+                    <div className="text-[15px] tnum">
+                      ${parseFloat(order.commission || 0).toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-1 md:text-right">
+                    <span
+                      className={`inline-block px-3 py-1 text-[11px] tracking-wide border ${
+                        order.status === 'Completed'
+                          ? 'bg-black text-white border-black'
+                          : order.status === 'Pending'
+                          ? 'bg-white text-black border-black'
+                          : 'bg-gray-100 text-gray-500 border-gray-300'
+                      }`}
+                    >
+                      {order.status}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-8">
+                <p className="text-[12px]" style={{ color: 'var(--ink-45)' }}>
+                  Page {page} of {totalPages} &middot; {total} total
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="btn-outline disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    {order.status}
-                  </span>
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="btn-outline disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
                 </div>
-              </li>
-            ))}
-          </ul>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
