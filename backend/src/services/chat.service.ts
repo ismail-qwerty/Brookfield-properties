@@ -35,20 +35,15 @@ export class ChatService {
     return newConv;
   }
 
-  // Get messages for a conversation
-  static async getMessages(conversationId: string, userId: string) {
-    // Verify user has access to this conversation
-    const { data: conv } = await supabaseAdmin
-      .from('chat_conversations')
-      .select('user_id, support_agent_id')
-      .eq('id', conversationId)
-      .single();
-
-    if (!conv || (conv.user_id !== userId && conv.support_agent_id !== userId)) {
-      throw new AppError(403, 'Access denied');
-    }
-
-    const { data: messages, error } = await supabaseAdmin
+  // Get messages for a conversation. With `after` (an ISO timestamp), returns
+  // only newer messages, so polling clients don't re-download the whole thread
+  // (including base64 image attachments) on every tick.
+  static async getMessages(
+    conversationId: string,
+    user: { id: string; user_type?: string },
+    after?: string
+  ) {
+    let messagesQuery = supabaseAdmin
       .from('chat_messages')
       .select(`
         *,
@@ -56,6 +51,28 @@ export class ChatService {
       `)
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
+
+    if (after) {
+      messagesQuery = messagesQuery.gt('created_at', after);
+    }
+
+    // The access check and the fetch are independent round trips to the
+    // database, so run them together; nothing is returned unless access passes.
+    const [{ data: conv }, { data: messages, error }] = await Promise.all([
+      supabaseAdmin
+        .from('chat_conversations')
+        .select('user_id, support_agent_id')
+        .eq('id', conversationId)
+        .single(),
+      messagesQuery,
+    ]);
+
+    // Support staff can read any thread — including one not yet assigned, which
+    // is exactly the moment an agent first opens it.
+    const isStaff = user.user_type === 'ChatSupport' || user.user_type === 'Admin';
+    if (!conv || (!isStaff && conv.user_id !== user.id && conv.support_agent_id !== user.id)) {
+      throw new AppError(403, 'Access denied');
+    }
 
     if (error) {
       throw new AppError(500, 'Failed to fetch messages');
@@ -80,21 +97,23 @@ export class ChatService {
       messageData.message = message.trim();
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('chat_messages')
-      .insert(messageData)
-      .select()
-      .single();
+    // Bumping the conversation's timestamp doesn't depend on the insert, so do
+    // both at once instead of making the sender wait for two round trips.
+    const [{ data, error }] = await Promise.all([
+      supabaseAdmin
+        .from('chat_messages')
+        .insert(messageData)
+        .select('*, sender:users!sender_id(id, username, user_type)')
+        .single(),
+      supabaseAdmin
+        .from('chat_conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversationId),
+    ]);
 
     if (error) {
       throw new AppError(500, 'Failed to send message');
     }
-
-    // Update conversation timestamp
-    await supabaseAdmin
-      .from('chat_conversations')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', conversationId);
 
     return data;
   }

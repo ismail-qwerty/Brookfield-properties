@@ -18,8 +18,8 @@ export class ChatController {
   static async getMessages(req: Request, res: Response, next: NextFunction) {
     try {
       const conversationId = req.params.conversationId;
-      const userId = (req as AuthRequest).user.id;
-      const messages = await ChatService.getMessages(conversationId, userId);
+      const after = typeof req.query.after === 'string' ? req.query.after : undefined;
+      const messages = await ChatService.getMessages(conversationId, (req as AuthRequest).user, after);
       ResponseUtil.success(res, messages, 'Messages retrieved');
     } catch (error) {
       next(error);

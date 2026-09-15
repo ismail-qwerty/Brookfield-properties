@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 import { Skeleton, SkeletonRegion } from './ui';
+import ChatMessage from './ChatMessage';
+import useChatMessages from '../hooks/useChatMessages';
 
 export default function FloatingChatButton() {
   const location = useLocation();
@@ -10,16 +12,19 @@ export default function FloatingChatButton() {
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [conversation, setConversation] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [conversationFailed, setConversationFailed] = useState(false);
+  // Only polls while the panel is open.
+  const { messages, loaded, send } = useChatMessages(open ? conversation?.id : null, {
+    userId: user?.id,
+    markRead: true,
+  });
   const [newMessage, setNewMessage] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
-  const pollRef = useRef(null);
   const prevMessageCountRef = useRef(0);
+  const loading = open && !conversationFailed && !loaded;
   const [panelHeight, setPanelHeight] = useState(560);
   const [showGreeting, setShowGreeting] = useState(false);
 
@@ -45,7 +50,7 @@ export default function FloatingChatButton() {
 
   // Listen for external open trigger (from Contact nav buttons)
   useEffect(() => {
-    const handler = () => { setOpen(true); dismissGreeting(); };
+    const handler = () => { setOpen(true); setUnreadCount(0); dismissGreeting(); };
     window.addEventListener('open-chat-widget', handler);
     return () => window.removeEventListener('open-chat-widget', handler);
   }, []);
@@ -64,19 +69,12 @@ export default function FloatingChatButton() {
     return () => clearInterval(interval);
   }, [user, open, isHiddenPage]);
 
-  // Init chat when widget opens
+  // Load the conversation the first time the widget opens.
   useEffect(() => {
     if (open && !conversation) {
       initChat();
     }
-    if (open && conversation?.id) {
-      startPolling(conversation.id);
-    }
-    if (!open) {
-      stopPolling();
-    }
-    return () => stopPolling();
-  }, [open, conversation?.id]);
+  }, [open, conversation]);
 
   useEffect(() => {
     if (open && messages.length > prevMessageCountRef.current) {
@@ -101,37 +99,13 @@ export default function FloatingChatButton() {
   }, [open]);
 
   const initChat = async () => {
-    setLoading(true);
+    setConversationFailed(false);
     try {
       const { data } = await api.get('/chat/conversation');
       setConversation(data.data);
-      await fetchMessages(data.data.id);
     } catch (e) {
       console.error('Chat init failed', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMessages = async (convId) => {
-    if (!convId) return;
-    try {
-      const { data } = await api.get(`/chat/conversations/${convId}/messages`);
-      setMessages(data.data || []);
-      setUnreadCount(0);
-      await api.put(`/chat/conversations/${convId}/read`);
-    } catch {}
-  };
-
-  const startPolling = (convId) => {
-    stopPolling();
-    pollRef.current = setInterval(() => fetchMessages(convId), 2000);
-  };
-
-  const stopPolling = () => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
+      setConversationFailed(true);
     }
   };
 
@@ -154,28 +128,18 @@ export default function FloatingChatButton() {
   const handleSend = async (e) => {
     e.preventDefault();
     if ((!newMessage.trim() && !selectedImage) || !conversation) return;
-    setSending(true);
+    if (selectedImage && !imagePreview) return; // still being read from disk
+
+    const text = newMessage;
+    const imageUrl = selectedImage ? imagePreview : null;
+    setNewMessage('');
+    handleRemoveImage();
+
     try {
-      let imageUrl = null;
-      if (selectedImage) {
-        const reader = new FileReader();
-        imageUrl = await new Promise((res, rej) => {
-          reader.onloadend = () => res(reader.result);
-          reader.onerror = rej;
-          reader.readAsDataURL(selectedImage);
-        });
-      }
-      await api.post(`/chat/conversations/${conversation.id}/messages`, {
-        message: newMessage || 'Sent an image',
-        image_url: imageUrl,
-      });
-      setNewMessage('');
-      handleRemoveImage();
-      await fetchMessages(conversation.id);
+      await send({ text, imageUrl });
     } catch {
+      setNewMessage(text);
       alert('Failed to send. Try again.');
-    } finally {
-      setSending(false);
     }
   };
 
@@ -201,7 +165,7 @@ export default function FloatingChatButton() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <button onClick={() => { setOpen(true); dismissGreeting(); }} className="text-left w-full">
+          <button onClick={() => { setOpen(true); setUnreadCount(0); dismissGreeting(); }} className="text-left w-full">
             <p className="font-serif text-[15px] text-black leading-snug mb-1">Hi, how can we help?</p>
             <p className="text-[12.5px] text-[var(--ink-45)] leading-relaxed">Our team is online and ready to answer any questions.</p>
           </button>
@@ -211,7 +175,7 @@ export default function FloatingChatButton() {
 
       {/* Launcher */}
       <button
-        onClick={() => { setOpen((o) => !o); dismissGreeting(); }}
+        onClick={() => { setOpen((o) => !o); setUnreadCount(0); dismissGreeting(); }}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-black text-white flex items-center justify-center transition-all duration-200 hover:scale-105 hover:bg-[var(--ink-70)] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
         title="Customer Support"
       >
@@ -245,7 +209,7 @@ export default function FloatingChatButton() {
               <span className="font-serif text-[14px]">B</span>
             </div>
             <div className="min-w-0">
-              <p className="font-serif text-[15px] leading-tight truncate">Blackstone Support</p>
+              <p className="font-serif text-[15px] leading-tight truncate text-white">Blackstone Support</p>
               <p className="text-[11px] text-white/55 flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"></span>
                 {isActive ? 'Agent responding' : 'Online'}
@@ -260,7 +224,7 @@ export default function FloatingChatButton() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[var(--paper-alt)]">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5 bg-[#f4f4f5]">
           {loading ? (
             <SkeletonRegion label="Loading conversation" className="space-y-3">
               {[
@@ -281,29 +245,7 @@ export default function FloatingChatButton() {
               <p className="text-[13px] text-[var(--ink-45)]">How can we help you today?</p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[78%] px-3.5 py-2.5 text-[13px] leading-relaxed rounded-[16px] ${
-                    msg.sender_id === user?.id
-                      ? 'bg-black text-white rounded-br-[4px]'
-                      : 'bg-white text-black rounded-bl-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.1)]'
-                  }`}
-                >
-                  {msg.message_type === 'image' && msg.image_url ? (
-                    <>
-                      <img src={msg.image_url} alt="Shared" className="max-w-full h-auto max-h-40 mb-1.5 cursor-pointer" onClick={() => window.open(msg.image_url, '_blank')} />
-                      {msg.message !== 'Sent an image' && <p>{msg.message}</p>}
-                    </>
-                  ) : (
-                    <p className="break-words">{msg.message}</p>
-                  )}
-                  <p className={`text-[10px] mt-1 tnum ${msg.sender_id === user?.id ? 'text-white/60' : 'text-[var(--ink-45)]'}`}>
-                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-              </div>
-            ))
+            messages.map((msg) => <ChatMessage key={msg.id} msg={msg} mine={msg.sender_id === user?.id} compact />)
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -318,7 +260,7 @@ export default function FloatingChatButton() {
           )}
           <div className="flex items-center gap-1.5">
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] transition-colors" disabled={sending}>
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] transition-colors" disabled={!conversation}>
               <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
               </svg>
@@ -329,11 +271,11 @@ export default function FloatingChatButton() {
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message…"
               className="flex-1 text-[13px] px-4 py-2.5 rounded-full bg-[var(--paper-alt)] border border-transparent focus:outline-none focus:border-black focus:bg-white transition-colors"
-              disabled={sending}
+              disabled={!conversation}
             />
             <button
               type="submit"
-              disabled={sending || (!newMessage.trim() && !selectedImage)}
+              disabled={!conversation || (!newMessage.trim() && !selectedImage)}
               className="w-9 h-9 rounded-full bg-black hover:bg-[var(--ink-70)] disabled:opacity-30 text-white flex items-center justify-center flex-shrink-0 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">

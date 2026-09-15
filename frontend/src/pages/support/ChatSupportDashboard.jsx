@@ -2,18 +2,19 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
 import { Skeleton, SkeletonRegion } from '../../components/ui';
+import ChatMessage from '../../components/ChatMessage';
+import useChatMessages from '../../hooks/useChatMessages';
 
 export default function ChatSupportDashboard() {
   const { user, logout } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [selectedConv, setSelectedConv] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const { messages, loaded: messagesLoaded, send } = useChatMessages(selectedConv?.id, { userId: user?.id });
   const [newMessage, setNewMessage] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [filter, setFilter] = useState('Open');
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const prevMessageCountRef = useRef(0);
@@ -45,14 +46,6 @@ export default function ChatSupportDashboard() {
     return () => clearInterval(convInterval);
   }, [filter]);
 
-  useEffect(() => {
-    // Poll messages every 2 seconds when a conversation is selected
-    if (selectedConv?.id) {
-      const msgInterval = setInterval(() => fetchMessages(selectedConv.id), 2000);
-      return () => clearInterval(msgInterval);
-    }
-  }, [selectedConv?.id]);
-
   const fetchConversations = async () => {
     try {
       const { data } = await api.get(`/chat/support/conversations?status=${filter}`);
@@ -64,19 +57,11 @@ export default function ChatSupportDashboard() {
     }
   };
 
-  const fetchMessages = async (convId) => {
-    try {
-      const { data } = await api.get(`/chat/conversations/${convId}/messages`);
-      setMessages(data.data || []);
-    } catch (error) {
-      console.error('Failed to fetch messages:', error);
-    }
-  };
-
+  // Messages load as soon as the thread is selected; claiming an unassigned
+  // conversation happens alongside rather than blocking that.
   const handleSelectConversation = async (conv) => {
     setSelectedConv(conv);
-    await fetchMessages(conv.id);
-    
+
     if (!conv.support_agent_id) {
       try {
         await api.put(`/chat/support/conversations/${conv.id}/assign`);
@@ -115,34 +100,21 @@ export default function ChatSupportDashboard() {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if ((!newMessage.trim() && !selectedImage) || !selectedConv) return;
+    if (selectedImage && !imagePreview) return; // still being read from disk
+
+    const text = newMessage;
+    // The preview already holds the image as a data URL, so there's nothing
+    // left to read before sending.
+    const imageUrl = selectedImage ? imagePreview : null;
+    setNewMessage('');
+    handleRemoveImage();
 
     try {
-      setUploading(true);
-      let imageUrl = null;
-      
-      if (selectedImage) {
-        // Convert image to base64
-        const reader = new FileReader();
-        imageUrl = await new Promise((resolve, reject) => {
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(selectedImage);
-        });
-      }
-
-      await api.post(`/chat/conversations/${selectedConv.id}/messages`, {
-        message: newMessage || 'Sent an image',
-        image_url: imageUrl,
-      });
-      
-      setNewMessage('');
-      handleRemoveImage();
-      await fetchMessages(selectedConv.id);
+      await send({ text, imageUrl });
     } catch (error) {
       console.error('Failed to send:', error);
+      setNewMessage(text);
       alert('Failed to send message. Please try again.');
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -151,7 +123,6 @@ export default function ChatSupportDashboard() {
     try {
       await api.put(`/chat/support/conversations/${selectedConv.id}/close`);
       setSelectedConv(null);
-      setMessages([]);
       fetchConversations();
     } catch (error) {
       console.error('Failed to close:', error);
@@ -253,7 +224,7 @@ export default function ChatSupportDashboard() {
             <>
               <div className="px-6 py-5 flex items-center justify-between bg-black text-white flex-shrink-0">
                 <div>
-                  <p className="font-serif text-[16px] leading-tight">{selectedConv.user?.username}</p>
+                  <p className="font-serif text-[16px] leading-tight text-white">{selectedConv.user?.username}</p>
                   <p className="text-[12px] text-white/55 mt-0.5">{selectedConv.user?.email}</p>
                 </div>
                 <button onClick={handleCloseConversation} className="btn-on-dark">
@@ -261,38 +232,20 @@ export default function ChatSupportDashboard() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 bg-[var(--paper-alt)]">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-md px-4 py-3 text-[14px] leading-relaxed rounded-[16px] ${
-                        msg.sender_id === user?.id
-                          ? 'bg-black text-white rounded-br-[4px]'
-                          : 'bg-white text-black rounded-bl-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.1)]'
-                      }`}
-                    >
-                      {msg.message_type === 'image' && msg.image_url ? (
-                        <>
-                          <img
-                            src={msg.image_url}
-                            alt="Shared"
-                            className="max-w-full h-auto max-h-64 mb-2 cursor-pointer"
-                            onClick={() => window.open(msg.image_url, '_blank')}
-                          />
-                          {msg.message !== 'Sent an image' && <p>{msg.message}</p>}
-                        </>
-                      ) : (
-                        <p className="break-words">{msg.message}</p>
-                      )}
-                      <p className={`text-[11px] mt-1.5 tnum ${msg.sender_id === user?.id ? 'text-white/60' : 'text-[var(--ink-45)]'}`}>
-                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3 bg-[#f4f4f5]">
+                {!messagesLoaded ? (
+                  <SkeletonRegion label="Loading messages" className="space-y-3">
+                    {[['justify-start', 'w-64'], ['justify-end', 'w-44'], ['justify-start', 'w-56']].map(([align, width], i) => (
+                      <div key={i} className={`flex ${align}`}>
+                        <Skeleton className={`h-[62px] ${width} rounded-[18px]`} />
+                      </div>
+                    ))}
+                  </SkeletonRegion>
+                ) : messages.length === 0 ? (
+                  <p className="text-center text-[14px] text-[#6b6b6b] py-10">No messages in this conversation yet.</p>
+                ) : (
+                  messages.map((msg) => <ChatMessage key={msg.id} msg={msg} mine={msg.sender_id === user?.id} />)
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -321,8 +274,7 @@ export default function ChatSupportDashboard() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] disabled:opacity-50 transition-colors"
-                    disabled={uploading}
+                    className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] transition-colors"
                     title="Attach image"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -334,21 +286,16 @@ export default function ChatSupportDashboard() {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type response..."
-                    className="flex-1 px-4 py-3 rounded-full bg-[var(--paper-alt)] border border-transparent focus:outline-none focus:border-black focus:bg-white transition-colors text-[14px]"
-                    disabled={uploading}
+                    className="flex-1 px-4 py-3 rounded-full bg-[var(--paper-alt)] border border-transparent text-[#111111] placeholder:text-[#8a8a8a] focus:outline-none focus:border-black focus:bg-white transition-colors text-[15px]"
                   />
                   <button
                     type="submit"
-                    disabled={uploading || (!newMessage.trim() && !selectedImage)}
+                    disabled={!newMessage.trim() && !selectedImage}
                     className="w-11 h-11 rounded-full bg-black text-white hover:bg-[var(--ink-70)] disabled:opacity-30 flex items-center justify-center flex-shrink-0 transition-colors"
                   >
-                    {uploading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6" />
-                      </svg>
-                    )}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6" />
+                    </svg>
                   </button>
                 </div>
               </form>

@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
 import { Skeleton, SkeletonRegion } from '../../components/ui';
+import ChatMessage from '../../components/ChatMessage';
+import useChatMessages from '../../hooks/useChatMessages';
 import ChatSupportDashboard from '../support/ChatSupportDashboard';
 
 export default function Support() {
@@ -20,30 +22,19 @@ export default function Support() {
 function UserChatInterface() {
   const { user } = useAuth();
   const [conversation, setConversation] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [conversationFailed, setConversationFailed] = useState(false);
+  const { messages, loaded, send } = useChatMessages(conversation?.id, { userId: user?.id, markRead: true });
   const [newMessage, setNewMessage] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const prevMessageCountRef = useRef(0);
+  const loading = !conversationFailed && !loaded;
 
   useEffect(() => {
     initChat();
   }, []);
-
-  useEffect(() => {
-    if (conversation?.id) {
-      // Initial fetch
-      fetchMessages(conversation.id);
-      // Poll every 2 seconds for new messages
-      const interval = setInterval(() => fetchMessages(conversation.id), 2000);
-      return () => clearInterval(interval);
-    }
-  }, [conversation?.id]);
 
   useEffect(() => {
     if (messages.length > prevMessageCountRef.current) {
@@ -60,23 +51,9 @@ function UserChatInterface() {
     try {
       const { data } = await api.get('/chat/conversation');
       setConversation(data.data);
-      await fetchMessages(data.data.id);
     } catch (error) {
       console.error('Failed to initialize chat:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMessages = async (convId) => {
-    if (!convId) return;
-    try {
-      const { data } = await api.get(`/chat/conversations/${convId}/messages`);
-      setMessages(data.data || []);
-      // Mark as read
-      await api.put(`/chat/conversations/${convId}/read`);
-    } catch (error) {
-      console.error('Failed to fetch messages:', error);
+      setConversationFailed(true);
     }
   };
 
@@ -108,34 +85,19 @@ function UserChatInterface() {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if ((!newMessage.trim() && !selectedImage) || !conversation) return;
+    if (selectedImage && !imagePreview) return; // still being read from disk
 
-    setSending(true);
+    const text = newMessage;
+    const imageUrl = selectedImage ? imagePreview : null;
+    setNewMessage('');
+    handleRemoveImage();
+
     try {
-      let imageUrl = null;
-      
-      if (selectedImage) {
-        // Convert image to base64
-        const reader = new FileReader();
-        imageUrl = await new Promise((resolve, reject) => {
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(selectedImage);
-        });
-      }
-
-      await api.post(`/chat/conversations/${conversation.id}/messages`, {
-        message: newMessage || 'Sent an image',
-        image_url: imageUrl,
-      });
-      
-      setNewMessage('');
-      handleRemoveImage();
-      await fetchMessages(conversation.id);
+      await send({ text, imageUrl });
     } catch (error) {
       console.error('Failed to send message:', error);
+      setNewMessage(text);
       alert('Failed to send message. Please try again.');
-    } finally {
-      setSending(false);
     }
   };
 
@@ -175,7 +137,7 @@ function UserChatInterface() {
                     <span className="font-serif text-[16px]">B</span>
                   </div>
                   <div>
-                    <p className="font-serif text-[16px] leading-tight">Blackstone Support</p>
+                    <p className="font-serif text-[16px] leading-tight text-white">Blackstone Support</p>
                     <p className="text-[12px] text-white/55 flex items-center gap-1.5 mt-0.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
                       {isActive ? 'Agent responding' : 'Online'}
@@ -188,7 +150,7 @@ function UserChatInterface() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 bg-[var(--paper-alt)]">
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3 bg-[#f4f4f5]">
                 {loading ? (
                   <SkeletonRegion label="Loading conversation" className="space-y-4">
                     {['justify-start w-56', 'justify-end w-40', 'justify-start w-64', 'justify-end w-48'].map((cls, i) => {
@@ -211,39 +173,7 @@ function UserChatInterface() {
                     <p className="text-[14px] text-[var(--ink-45)]">Start a conversation with our support team</p>
                   </div>
                 ) : (
-                  messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-xs lg:max-w-md px-4 py-3 text-[14px] leading-relaxed rounded-[16px] ${
-                          msg.sender_id === user?.id
-                            ? 'bg-black text-white rounded-br-[4px]'
-                            : 'bg-white text-black rounded-bl-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.1)]'
-                        }`}
-                      >
-                        {msg.message_type === 'image' && msg.image_url ? (
-                          <>
-                            <img
-                              src={msg.image_url}
-                              alt="Shared"
-                              className="max-w-full h-auto max-h-64 mb-2 cursor-pointer"
-                              onClick={() => window.open(msg.image_url, '_blank')}
-                            />
-                            {msg.message !== 'Sent an image' && (
-                              <p className="break-words">{msg.message}</p>
-                            )}
-                          </>
-                        ) : (
-                          <p className="break-words">{msg.message}</p>
-                        )}
-                        <p className={`text-[11px] mt-1.5 tnum ${msg.sender_id === user?.id ? 'text-white/60' : 'text-[var(--ink-45)]'}`}>
-                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                  ))
+                  messages.map((msg) => <ChatMessage key={msg.id} msg={msg} mine={msg.sender_id === user?.id} />)
                 )}
                 <div ref={messagesEndRef} />
               </div>
@@ -275,7 +205,7 @@ function UserChatInterface() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] disabled:opacity-50 transition-colors"
-                    disabled={loading || sending || uploading}
+                    disabled={!conversation}
                     title="Attach image"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -287,21 +217,17 @@ function UserChatInterface() {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type your message..."
-                    className="flex-1 px-4 py-3 rounded-full bg-[var(--paper-alt)] border border-transparent focus:outline-none focus:border-black focus:bg-white transition-colors text-[14px]"
-                    disabled={loading || sending || uploading}
+                    className="flex-1 px-4 py-3 rounded-full bg-[var(--paper-alt)] border border-transparent text-[#111111] placeholder:text-[#8a8a8a] focus:outline-none focus:border-black focus:bg-white transition-colors text-[15px]"
+                    disabled={!conversation}
                   />
                   <button
                     type="submit"
-                    disabled={loading || sending || uploading || (!newMessage.trim() && !selectedImage)}
+                    disabled={!conversation || (!newMessage.trim() && !selectedImage)}
                     className="w-11 h-11 rounded-full bg-black text-white hover:bg-[var(--ink-70)] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0 transition-colors"
                   >
-                    {uploading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6" />
-                      </svg>
-                    )}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6" />
+                    </svg>
                   </button>
                 </div>
               </form>
