@@ -1,5 +1,6 @@
-// One chat bubble, shared by the floating widget, the Support page and the
-// agent console so all three stay readable and identical.
+// One chat bubble for the customer-facing chat (floating widget and Support
+// page), so both stay readable and identical. The agent console deliberately
+// uses its own softer, messenger-style bubbles.
 //
 // Text colors are set on the <p> elements themselves: the base stylesheet
 // gives every <p> a dark grey, which silently overrode the bubble's inherited
