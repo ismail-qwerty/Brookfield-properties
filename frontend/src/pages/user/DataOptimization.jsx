@@ -12,8 +12,8 @@ export default function DataOptimization() {
   const [stats, setStats] = useState({
     balance: 0,
     todayEarnings: 0,
-    ordersToday: 0,
-    totalOrders: 0,
+    lotsCompleted: 0,
+    lotsRemaining: 0,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,11 +33,11 @@ export default function DataOptimization() {
       setTimeout(() => setSuccessMessage(''), 5000);
     }
 
-    // "Today's Earnings" / "Orders Today" are computed server-side from
-    // each order's timestamp, so they naturally reset once a new day
-    // starts — but only the NEXT time this page fetches. Without polling,
-    // a tab left open across midnight (or just sitting idle a while) would
-    // keep showing yesterday's numbers until manually reloaded.
+    // "Today's Earnings" is computed server-side from each order's
+    // timestamp, so it naturally resets once a new day starts — but only
+    // the NEXT time this page fetches. Without polling, a tab left open
+    // across midnight (or just sitting idle a while) would keep showing
+    // yesterday's number until manually reloaded.
     const interval = setInterval(fetchStats, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -48,12 +48,17 @@ export default function DataOptimization() {
       const profileData = response.data.data;
 
       const tierLimit = profileData?.membership?.order_limit || 27;
+      const totalOrders = profileData?.total_orders || 0;
 
       setStats({
         balance: profileData?.wallet?.balance || 0,
         todayEarnings: profileData?.today_earnings || 0,
-        ordersToday: profileData?.orders_today || 0,
-        totalOrders: tierLimit,
+        // Same total_orders the admin panel's "Total Orders" / "Available"
+        // columns are built from, so this page and the admin panel always
+        // agree — and neither can exceed the tier's order_limit, since the
+        // generate-lot gate blocks total_orders from ever going past it.
+        lotsCompleted: totalOrders,
+        lotsRemaining: Math.max(0, tierLimit - totalOrders),
       });
     } catch (err) {
       console.error('Failed to fetch stats:', err);
@@ -87,8 +92,8 @@ export default function DataOptimization() {
   const metrics = [
     { label: 'Account Balance', value: formatCurrency(stats.balance) },
     { label: "Today's Earnings", value: formatCurrency(stats.todayEarnings) },
-    { label: 'Orders Today', value: stats.ordersToday },
-    { label: 'Lot Limit', value: stats.totalOrders },
+    { label: 'Lots Completed', value: stats.lotsCompleted },
+    { label: 'Lots Remaining', value: stats.lotsRemaining },
   ];
 
   return (

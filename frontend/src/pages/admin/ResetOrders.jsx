@@ -84,9 +84,12 @@ export default function ResetOrders() {
                         <p className="text-sm text-gray-600 mt-1">
                           {lot.status === 'Pending' ? (
                             <>
+                              {/* Delivery fires once total_orders exceeds
+                                  trigger_after_order_no, so the user needs to
+                                  reach trigger + 1 — not trigger itself. */}
                               Appears after{' '}
                               <span className="font-semibold">
-                                {Math.max(0, lot.trigger_after_order_no - (user?.total_orders || 0))}
+                                {Math.max(0, lot.trigger_after_order_no + 1 - (user?.total_orders || 0))}
                               </span>{' '}
                               more completed order(s)
                             </>

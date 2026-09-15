@@ -186,19 +186,17 @@ export class OrderService {
               .update({ status: 'Completed' })
               .eq('id', specialQueue.id);
 
-            const { count: orderCount } = await supabaseAdmin
-              .from('orders')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', userId)
-              .eq('status', 'Completed');
-
             Logger.info('Special lot injected into order flow', { userId, orderId: newOrder.id });
 
             return {
               success: true,
               order: {
                 id: newOrder.id,
-                display_number: (orderCount || 0) + 1,
+                // Cycle-relative position, not a lifetime order count — must
+                // track total_orders (which "Reset Count" zeroes) so the
+                // number shown to the user actually reflects a reset instead
+                // of continuing to climb from their all-time completed total.
+                display_number: (user.total_orders || 0) + 1,
                 property: {
                   id: specialProperty.id,
                   name: specialProperty.name,
@@ -279,20 +277,15 @@ export class OrderService {
       const propertyTitle = propertyData.name || 'Property Listing';
       const commissionEarned = Number(selectedOrder.commission) || (Number(propertyData.value || propertyData.price || 0) * Number(tier.commission_rate)) / 100;
 
-      // Get display order number
-      const { count: orderCount } = await supabaseAdmin
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('status', 'Completed');
-
       Logger.info('Lot fetched successfully (pending submission)', { userId, orderId: selectedOrder.id });
 
       return {
         success: true,
         order: {
           id: selectedOrder.id,
-          display_number: (orderCount || 0) + 1,
+          // Cycle-relative position (see the special-lot branch above for
+          // why this must be total_orders, not a lifetime completed count).
+          display_number: (user.total_orders || 0) + 1,
           property: {
             id: propertyData.id,
             name: propertyData.name,

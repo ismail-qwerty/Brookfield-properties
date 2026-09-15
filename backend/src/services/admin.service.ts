@@ -1060,12 +1060,33 @@ export class AdminService {
         throw new AppError(500, 'Failed to reset orders');
       }
 
+      // Pending special lots were scheduled as absolute positions in the cycle
+      // that just ended (see assignSpecialLot), so they are meaningless against
+      // a counter now back at 0 — a lot queued for "after order 22" would sit
+      // 22 lots away, and one queued below the old count would fire instantly.
+      // Drop them so the admin schedules against the fresh cycle instead.
+      // Already-delivered ('Completed') entries are history and stay put.
+      const { data: clearedLots, error: clearError } = await supabaseAdmin
+        .from('user_special_lots_queue')
+        .delete()
+        .eq('user_id', userId)
+        .eq('status', 'Pending')
+        .select('id');
+
+      if (clearError) {
+        Logger.error('Failed to clear pending special lots on reset', { userId, error: clearError });
+        throw new AppError(500, 'Orders were reset but pending special lots could not be cleared');
+      }
+
+      const clearedSpecialLots = clearedLots?.length || 0;
+
       Logger.info('User orders reset successfully', {
         userId,
         username: user.username,
         adminId,
         previousTotal,
         newTotal: 0,
+        clearedSpecialLots,
       });
 
       return {
@@ -1073,6 +1094,7 @@ export class AdminService {
         username: user.username,
         previous_total_orders: previousTotal,
         new_total_orders: 0,
+        cleared_special_lots: clearedSpecialLots,
       };
     } catch (error) {
       if (error instanceof AppError) {
