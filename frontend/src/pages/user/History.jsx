@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
+import { Skeleton, SkeletonRegion } from '../../components/ui';
 
 const PAGE_SIZE = 10;
 
@@ -79,9 +80,36 @@ export default function History() {
         </div>
 
         {loading ? (
-          <div className="py-24 text-center">
-            <div className="inline-block animate-spin rounded-full h-6 w-6 border-b border-black"></div>
-          </div>
+          <SkeletonRegion label="Loading orders" className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-[16px] border p-5 md:p-6"
+                style={{ borderColor: 'var(--rule)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+              >
+                <div className="flex items-start gap-4 mb-5">
+                  <Skeleton className="w-16 h-16 rounded-[10px] flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <Skeleton className="h-5 md:h-6 w-3/5" />
+                      <Skeleton className="h-[26px] w-20 flex-shrink-0" />
+                    </div>
+                    <Skeleton className="h-3.5 w-24 mt-2" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 pt-4 border-t" style={{ borderColor: 'var(--rule)' }}>
+                  {['Price', 'Commission', 'Total'].map((label) => (
+                    <div key={label}>
+                      <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
+                        {label}
+                      </div>
+                      <Skeleton className="h-5 w-16" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </SkeletonRegion>
         ) : orders.length === 0 ? (
           <div className="py-24 text-center">
             <p className="text-[15px] mb-6" style={{ color: 'var(--ink-45)' }}>

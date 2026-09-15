@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
-import { CurrencyDisplay, LoadingSpinner, PayoutMethodIcon } from '../../components/ui';
+import { CurrencyDisplay, PayoutMethodIcon, Skeleton } from '../../components/ui';
 
-const ACCENT = 'linear-gradient(135deg, #6C5CE7 0%, #00C2FF 100%)';
+const ACCENT = 'linear-gradient(135deg, #3a3a3a 0%, #000000 100%)';
 
 const PAYOUT_METHODS = [
   { id: 'paypal', label: 'PayPal' },
@@ -65,7 +65,7 @@ function ActionButton({ icon, label, onClick }) {
     <button onClick={onClick} className="flex flex-col items-center gap-2.5 group flex-shrink-0">
       <span
         className="w-14 h-14 rounded-full flex items-center justify-center transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
-        style={{ background: ACCENT, boxShadow: '0 10px 26px -10px rgba(108,92,231,0.6)' }}
+        style={{ background: ACCENT, boxShadow: '0 10px 26px -10px rgba(0,0,0,0.6)' }}
       >
         <Icon name={icon} className="w-6 h-6" />
       </span>
@@ -96,9 +96,12 @@ export default function Wallet() {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
-
   const wallet = profile?.wallet;
+
+  // The page shell renders immediately; only data-driven values wait. After a
+  // failed load they show a dash rather than a misleading $0.00.
+  const money = (amount, skeletonClass) =>
+    loading ? <Skeleton dark className={skeletonClass} /> : profile ? <CurrencyDisplay amount={amount || 0} /> : '—';
 
   // Purely cosmetic "card number" derived from the account id, so the
   // balance card reads like a real wallet card rather than a bare number.
@@ -124,7 +127,11 @@ export default function Wallet() {
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] text-white/40 mb-1.5">Wallet</div>
             <div className="text-[15px] text-white/70">
-              {profile?.membership?.name ? `${profile.membership.name} Member` : 'Member'} &middot; {user?.username}
+              {loading ? (
+                <Skeleton dark className="h-[18px] my-[3px] w-44" />
+              ) : (
+                <>{profile?.membership?.name ? `${profile.membership.name} Member` : 'Member'} &middot; {user?.username}</>
+              )}
             </div>
           </div>
           <button
@@ -145,18 +152,18 @@ export default function Wallet() {
           }}
         >
           <div
-            className="pointer-events-none absolute -top-24 -left-16 w-72 h-72 rounded-full opacity-30 blur-3xl"
-            style={{ background: '#6C5CE7' }}
+            className="pointer-events-none absolute -top-24 -left-16 w-72 h-72 rounded-full opacity-[0.08] blur-3xl"
+            style={{ background: '#ffffff' }}
           />
           <div
-            className="pointer-events-none absolute -bottom-28 -right-12 w-72 h-72 rounded-full opacity-25 blur-3xl"
-            style={{ background: '#00C2FF' }}
+            className="pointer-events-none absolute -bottom-28 -right-12 w-72 h-72 rounded-full opacity-[0.06] blur-3xl"
+            style={{ background: '#ffffff' }}
           />
 
           <div className="relative">
             <div className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-3">Total Balance</div>
             <div className="font-sans font-bold text-[46px] sm:text-[64px] leading-none tnum mb-9 sm:mb-11">
-              {hideBalance ? '••••••' : <CurrencyDisplay amount={wallet?.balance || 0} />}
+              {hideBalance && !loading ? '••••••' : money(wallet?.balance, 'h-[46px] sm:h-[64px] w-56 sm:w-80')}
             </div>
 
             <div className="flex gap-6 sm:gap-10 mb-9 sm:mb-11 overflow-x-auto">
@@ -171,10 +178,15 @@ export default function Wallet() {
               style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
             >
               <div className="font-mono text-[13px] sm:text-[15px] tracking-[0.25em] text-white/50 tnum">
-                •••• •••• •••• {last4}
+                •••• •••• •••• {loading ? <Skeleton dark className="inline-block align-middle h-4 w-12" /> : last4}
               </div>
               <div className="text-[12px] text-white/40">
-                Member since <span className="text-white/70">{memberSince}</span>
+                Member since{' '}
+                {loading ? (
+                  <Skeleton dark className="inline-block align-middle h-3.5 w-16" />
+                ) : (
+                  <span className="text-white/70">{memberSince}</span>
+                )}
               </div>
             </div>
           </div>
@@ -198,7 +210,7 @@ export default function Wallet() {
                 <span className="text-[14px] text-white/70">{s.label}</span>
               </div>
               <span className="text-[17px] sm:text-[19px] font-semibold tnum">
-                <CurrencyDisplay amount={s.value || 0} />
+                {money(s.value, 'h-5 w-24')}
               </span>
             </div>
           ))}

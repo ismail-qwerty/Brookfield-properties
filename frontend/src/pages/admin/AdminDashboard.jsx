@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { StatusBadge, TierBadge, CurrencyDisplay, LoadingSpinner, EmptyState } from '../../components/ui';
+import { StatusBadge, TierBadge, CurrencyDisplay, EmptyState, SkeletonTableRows } from '../../components/ui';
 import api from '../../utils/api';
 
 export default function AdminDashboard() {
@@ -21,8 +21,8 @@ export default function AdminDashboard() {
     fetchUsers();
 
     // Auto-refresh every 30 seconds to show real-time data. Pass
-    // isBackgroundRefresh so this doesn't toggle the loading spinner and
-    // blank out the whole table every cycle — only the values update.
+    // isBackgroundRefresh so this doesn't swap the table back to skeleton
+    // rows every cycle — only the values update.
     const interval = setInterval(() => {
       fetchUsers(true);
     }, 30000);
@@ -178,11 +178,7 @@ export default function AdminDashboard() {
 
       {/* Users Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-        {loading ? (
-          <div className="py-12">
-            <LoadingSpinner size="lg" />
-          </div>
-        ) : filteredUsers.length === 0 ? (
+        {!loading && filteredUsers.length === 0 ? (
           <EmptyState message={searchQuery ? 'No users found matching your search' : 'No users found'} icon="👥" />
         ) : (
           <>
@@ -209,8 +205,10 @@ export default function AdminDashboard() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
+                <tbody className="divide-y divide-gray-200" aria-busy={loading}>
+                  {loading ? (
+                    <SkeletonTableRows rows={8} columns={17} cellClassName="px-4 py-5" />
+                  ) : filteredUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm">{user.id}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{user.username}</td>

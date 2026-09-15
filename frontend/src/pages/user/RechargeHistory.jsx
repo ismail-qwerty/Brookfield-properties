@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { SkeletonRegion, SkeletonTableRows } from '../../components/ui';
 
 export default function RechargeHistory() {
   const { user } = useAuth();
@@ -44,9 +45,20 @@ export default function RechargeHistory() {
         </h2>
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b border-black"></div>
-          </div>
+          <SkeletonRegion label="Loading recharges" className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <table className="min-w-full">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">#</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Amount ($)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <SkeletonTableRows rows={5} columns={3} rowClassName={(i) => (i % 2 === 0 ? 'bg-gray-50' : 'bg-white')} />
+              </tbody>
+            </table>
+          </SkeletonRegion>
         ) : recharges.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <p className="text-gray-500">No recharge records found</p>

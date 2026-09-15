@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
+import { Skeleton, SkeletonRegion } from '../../components/ui';
 
 export default function ChatSupportDashboard() {
   const { user, logout } = useAuth();
@@ -203,9 +204,21 @@ export default function ChatSupportDashboard() {
 
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="p-10 flex justify-center">
-                <div className="w-6 h-6 rounded-full border-2 border-black border-t-transparent animate-spin"></div>
-              </div>
+              <SkeletonRegion label="Loading conversations">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="px-6 py-4 border-b"
+                    style={{ borderColor: 'var(--rule)', borderLeft: '2px solid transparent' }}
+                  >
+                    <div className="flex justify-between items-center mb-2 gap-3">
+                      <Skeleton className={`h-4 ${i % 2 ? 'w-24' : 'w-32'}`} />
+                      <Skeleton className="h-3 w-10 flex-shrink-0" />
+                    </div>
+                    <Skeleton className={`h-3.5 ${i % 3 ? 'w-44' : 'w-52'}`} />
+                  </div>
+                ))}
+              </SkeletonRegion>
             ) : conversations.length === 0 ? (
               <div className="p-10 text-center text-[14px] text-[var(--ink-45)]">No conversations</div>
             ) : (

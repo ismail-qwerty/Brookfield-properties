@@ -61,8 +61,8 @@ export default function PayoutMethodIcon({ icon, size = 40, active = false }) {
       style={{
         width: size,
         height: size,
-        background: active ? 'linear-gradient(135deg, #6C5CE7 0%, #00C2FF 100%)' : '#1a1a1a',
-        boxShadow: active ? '0 8px 22px -8px rgba(108,92,231,0.65)' : 'none',
+        background: active ? 'linear-gradient(135deg, #4a4a4a 0%, #000000 100%)' : '#1a1a1a',
+        boxShadow: active ? '0 8px 22px -8px rgba(255,255,255,0.2)' : 'none',
       }}
     >
       <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 40 40" aria-hidden="true">

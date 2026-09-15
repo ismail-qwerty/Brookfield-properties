@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TierBadge, LoadingSpinner, EmptyState } from '../../components/ui';
+import { TierBadge, LoadingSpinner, EmptyState, SkeletonTableRows } from '../../components/ui';
 import api from '../../utils/api';
 
 export default function Memberships() {
@@ -121,11 +121,7 @@ export default function Memberships() {
 
       {/* Membership Tiers Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
-        {loading ? (
-          <div className="py-12">
-            <LoadingSpinner size="lg" />
-          </div>
-        ) : memberships.length === 0 ? (
+        {!loading && memberships.length === 0 ? (
           <EmptyState message="No membership tiers configured" icon="⭐" />
         ) : (
           <div className="overflow-x-auto">
@@ -141,8 +137,10 @@ export default function Memberships() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {memberships.map((membership) => (
+              <tbody className="divide-y divide-gray-200" aria-busy={loading}>
+                {loading ? (
+                  <SkeletonTableRows rows={4} columns={7} cellClassName="px-6 py-6" />
+                ) : memberships.map((membership) => (
                   <tr key={membership.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-900">{membership.id}</td>
                     <td className="px-6 py-4">

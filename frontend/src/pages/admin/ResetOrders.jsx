@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { LoadingSpinner } from '../../components/ui';
+import { Skeleton, SkeletonRegion } from '../../components/ui';
 import api from '../../utils/api';
 
 export default function ResetOrders() {
@@ -16,8 +16,10 @@ export default function ResetOrders() {
     fetchUserOrders();
   }, [id]);
 
-  const fetchUserOrders = async () => {
-    setLoading(true);
+  // Background refreshes (e.g. after removing a lot) keep the current list on
+  // screen instead of dropping the whole page back to its skeleton.
+  const fetchUserOrders = async (background = false) => {
+    if (!background) setLoading(true);
     try {
       const userResponse = await api.admin.getUserById(id);
       setUser(userResponse.data.data);
@@ -28,7 +30,7 @@ export default function ResetOrders() {
     } catch (err) {
       console.error('Failed to fetch user orders:', err);
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   };
 
@@ -42,7 +44,7 @@ export default function ResetOrders() {
     setRemovingId(lot.id);
     try {
       await api.delete(`/admin/users/${id}/special-lots/${lot.id}`);
-      await fetchUserOrders();
+      await fetchUserOrders(true);
     } catch (err) {
       setError(
         err.response?.data?.error ||
@@ -53,14 +55,6 @@ export default function ResetOrders() {
       setRemovingId(null);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -83,13 +77,34 @@ export default function ResetOrders() {
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="bg-black px-8 py-6">
-          <h2 className="text-xl font-bold text-white">
-            Setup Orders for {user?.username}
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            Setup Orders for{' '}
+            {loading ? <Skeleton dark className="h-6 w-28" /> : user?.username}
           </h2>
         </div>
 
         <div className="p-8">
-          {assignedLots.length === 0 ? (
+          {loading ? (
+            <SkeletonRegion label="Loading special lots">
+              <Skeleton className="h-5 w-48 mb-4" />
+              <div className="space-y-4 mb-6">
+                {[0, 1].map((i) => (
+                  <div key={i} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-56" />
+                        <Skeleton className="h-4 w-64" />
+                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-4 w-44" />
+                      </div>
+                      <Skeleton className="h-6 w-20 rounded-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Skeleton className="h-11 w-40" />
+            </SkeletonRegion>
+          ) : assignedLots.length === 0 ? (
             <>
               <p className="text-gray-600 mb-6">No orders selected for this user.</p>
               <button

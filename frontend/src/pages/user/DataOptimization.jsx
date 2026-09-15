@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
+import { Skeleton } from '../../components/ui';
 
 // Must match backend MINIMUM_BALANCE_TO_TRADE (order.service.ts)
 const MINIMUM_BALANCE_TO_TRADE = 50;
@@ -9,12 +10,10 @@ const MINIMUM_BALANCE_TO_TRADE = 50;
 export default function DataOptimization() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    balance: 0,
-    todayEarnings: 0,
-    lotsCompleted: 0,
-    lotsRemaining: 0,
-  });
+  // null until the first fetch lands, so nothing renders a fake $0.00 (or a
+  // false low-balance warning) before the real numbers arrive.
+  const [stats, setStats] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAlert, setShowAlert] = useState(true);
@@ -62,6 +61,7 @@ export default function DataOptimization() {
       });
     } catch (err) {
       console.error('Failed to fetch stats:', err);
+      setLoadFailed(true);
     }
   };
 
@@ -90,10 +90,10 @@ export default function DataOptimization() {
   const formatCurrency = (amount) => `${amount < 0 ? '-' : ''}$${Math.abs(amount).toFixed(2)}`;
 
   const metrics = [
-    { label: 'Account Balance', value: formatCurrency(stats.balance) },
-    { label: "Today's Earnings", value: formatCurrency(stats.todayEarnings) },
-    { label: 'Lots Completed', value: stats.lotsCompleted },
-    { label: 'Lots Remaining', value: stats.lotsRemaining },
+    { label: 'Account Balance', value: stats && formatCurrency(stats.balance) },
+    { label: "Today's Earnings", value: stats && formatCurrency(stats.todayEarnings) },
+    { label: 'Lots Completed', value: stats?.lotsCompleted },
+    { label: 'Lots Remaining', value: stats?.lotsRemaining },
   ];
 
   return (
@@ -110,7 +110,7 @@ export default function DataOptimization() {
       </section>
 
       {/* Low balance notice */}
-      {showAlert && stats.balance < MINIMUM_BALANCE_TO_TRADE && (
+      {showAlert && stats && stats.balance < MINIMUM_BALANCE_TO_TRADE && (
         <section className="wrap pb-6">
           <div className="border-l-2 border-white bg-white/5 px-5 py-4 flex items-start justify-between gap-6">
             <div>
@@ -132,7 +132,7 @@ export default function DataOptimization() {
       )}
 
       {/* Metrics */}
-      <section className="wrap pb-10">
+      <section className="wrap pb-10" aria-busy={!stats}>
         <div className="grid grid-cols-2 lg:grid-cols-4 border-t border-l border-white/15">
           {metrics.map((m) => (
             <div key={m.label} className="border-r border-b border-white/15 px-5 py-5">
@@ -140,7 +140,11 @@ export default function DataOptimization() {
                 {m.label}
               </div>
               <div className="font-serif text-[22px] md:text-[26px] leading-none tnum text-white">
-                {m.value}
+                {stats
+                  ? m.value
+                  : loadFailed
+                  ? '—'
+                  : <Skeleton dark className="h-[22px] md:h-[26px] w-20 md:w-24" />}
               </div>
             </div>
           ))}

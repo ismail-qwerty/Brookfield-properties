@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext(null);
@@ -11,34 +11,29 @@ export const useAuth = () => {
   return context;
 };
 
+// localStorage is synchronous, so the session is read during the very first
+// render. Restoring it in an effect instead would paint one "logged out" frame
+// on every page load, which the route guards covered with a full-screen spinner.
+const readStoredAuth = () => {
+  try {
+    const storedToken = localStorage.getItem('authToken');
+    const storedUser = localStorage.getItem('user');
+    if (storedToken && storedUser) {
+      return { token: storedToken, user: JSON.parse(storedUser) };
+    }
+  } catch (error) {
+    console.error('Failed to initialize auth:', error);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+  }
+  return { token: null, user: null };
+};
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [initialAuth] = useState(readStoredAuth);
+  const [user, setUser] = useState(initialAuth.user);
+  const [token, setToken] = useState(initialAuth.token);
   const navigate = useNavigate();
-
-  // Initialize auth state from localStorage on mount
-  useEffect(() => {
-    const initializeAuth = () => {
-      try {
-        const storedToken = localStorage.getItem('authToken');
-        const storedUser = localStorage.getItem('user');
-
-        if (storedToken && storedUser) {
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser));
-        }
-      } catch (error) {
-        console.error('Failed to initialize auth:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
-  }, []);
 
   // Login function - Makes API call to backend
   const login = async (username, password) => {
@@ -142,7 +137,6 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     token,
-    loading,
     login,
     logout,
     updateUser,

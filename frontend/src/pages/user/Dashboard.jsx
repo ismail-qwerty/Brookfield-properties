@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
-import { QuickAccessIcon } from '../../components/ui';
+import { QuickAccessIcon, Skeleton } from '../../components/ui';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -14,7 +15,9 @@ export default function Dashboard() {
       .then((res) => {
         if (!cancelled) setStats(res.data.data);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -122,7 +125,7 @@ export default function Dashboard() {
                 {s.label}
               </div>
               <div className="font-serif text-[24px] md:text-[28px] tnum leading-none">
-                {s.value}
+                {stats || loadFailed ? s.value : <Skeleton className="h-[24px] md:h-[28px] w-24 md:w-28" />}
               </div>
             </div>
           ))}

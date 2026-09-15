@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
+import { Skeleton } from '../../components/ui';
 
 export default function BindWallet() {
   const { user } = useAuth();
   const [walletAddress, setWalletAddress] = useState('');
-  const [balance, setBalance] = useState(0);
+  const [balance, setBalance] = useState(null);
+  const [balanceFailed, setBalanceFailed] = useState(false);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -18,9 +20,10 @@ export default function BindWallet() {
   const fetchWallet = async () => {
     try {
       const response = await api.user.getWallet();
-      setBalance(response.data.data?.balance || 0);
+      setBalance(Number(response.data.data?.balance) || 0);
     } catch (error) {
       console.error('Failed to fetch wallet:', error);
+      setBalanceFailed(true);
     }
   };
 
@@ -68,7 +71,11 @@ export default function BindWallet() {
                   Account Balance - {user?.username}
                 </h4>
                 <p className="text-2xl font-bold text-blue-600">
-                  ${balance.toFixed(2)}
+                  {balance !== null
+                    ? `$${balance.toFixed(2)}`
+                    : balanceFailed
+                    ? '—'
+                    : <Skeleton className="h-8 w-32" />}
                 </p>
               </div>
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
+import { Skeleton, SkeletonRegion } from './ui';
 
 export default function FloatingChatButton() {
   const location = useLocation();
@@ -261,9 +262,17 @@ export default function FloatingChatButton() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[var(--paper-alt)]">
           {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="w-6 h-6 rounded-full border-2 border-black border-t-transparent animate-spin"></div>
-            </div>
+            <SkeletonRegion label="Loading conversation" className="space-y-3">
+              {[
+                ['justify-start', 'w-44', 'rounded-bl-[4px]'],
+                ['justify-end', 'w-32', 'rounded-br-[4px]'],
+                ['justify-start', 'w-52', 'rounded-bl-[4px]'],
+              ].map(([align, width, corner], i) => (
+                <div key={i} className={`flex ${align}`}>
+                  <Skeleton className={`h-[54px] ${width} rounded-[16px] ${corner}`} />
+                </div>
+              ))}
+            </SkeletonRegion>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
               <svg className="w-9 h-9 mb-3 text-[var(--ink-25)]" fill="none" stroke="currentColor" strokeWidth={1.25} viewBox="0 0 24 24">

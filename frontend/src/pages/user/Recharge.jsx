@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
+import { Skeleton } from '../../components/ui';
 
 export default function Recharge() {
   const { user } = useAuth();
-  const [balance, setBalance] = useState(0);
+  const [balance, setBalance] = useState(null);
+  const [balanceFailed, setBalanceFailed] = useState(false);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -19,9 +21,10 @@ export default function Recharge() {
   const fetchWallet = async () => {
     try {
       const response = await api.user.getWallet();
-      setBalance(response.data.data.balance || 0);
+      setBalance(Number(response.data.data.balance) || 0);
     } catch (error) {
       console.error('Failed to fetch wallet:', error);
+      setBalanceFailed(true);
     }
   };
 
@@ -75,7 +78,13 @@ export default function Recharge() {
         {/* Balance */}
         <div className="border-b pb-8 mb-12" style={{ borderColor: 'var(--rule)' }}>
           <div className="stat-label">Account Balance &middot; {user?.username}</div>
-          <div className="stat-value">${balance.toFixed(2)}</div>
+          <div className="stat-value">
+            {balance !== null
+              ? `$${balance.toFixed(2)}`
+              : balanceFailed
+              ? '—'
+              : <Skeleton className="h-[32px] md:h-[38px] w-40" />}
+          </div>
         </div>
 
         <form onSubmit={handleSubmit}>

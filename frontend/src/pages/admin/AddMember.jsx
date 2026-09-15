@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LoadingSpinner } from '../../components/ui';
+import { LoadingSpinner, Skeleton } from '../../components/ui';
 import api from '../../utils/api';
 
 const EMAIL_DOMAIN = '@gmail.com';
@@ -10,6 +10,7 @@ export default function AddMember() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [memberships, setMemberships] = useState([]);
+  const [tiersLoading, setTiersLoading] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
     full_name: '',
@@ -44,6 +45,8 @@ export default function AddMember() {
       setMemberships(response.data.data.memberships || []);
     } catch (err) {
       console.error('Failed to fetch memberships:', err);
+    } finally {
+      setTiersLoading(false);
     }
   };
 
@@ -411,18 +414,22 @@ export default function AddMember() {
               <label className="block text-sm font-semibold text-gray-900 mb-2">
                 Membership Level
               </label>
-              <select
-                name="tier_id"
-                value={formData.tier_id}
-                onChange={handleChange}
-                className="input-field"
-              >
-                {memberships.map((tier) => (
-                  <option key={tier.id} value={tier.id}>
-                    {tier.name}
-                  </option>
-                ))}
-              </select>
+              {tiersLoading ? (
+                <Skeleton className="h-12 w-full rounded-lg" />
+              ) : (
+                <select
+                  name="tier_id"
+                  value={formData.tier_id}
+                  onChange={handleChange}
+                  className="input-field"
+                >
+                  {memberships.map((tier) => (
+                    <option key={tier.id} value={tier.id}>
+                      {tier.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 

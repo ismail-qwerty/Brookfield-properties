@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
-import { QuickAccessIcon } from '../../components/ui';
+import { QuickAccessIcon, Skeleton } from '../../components/ui';
 
 export default function Profile() {
   const { user, logout } = useAuth();
@@ -60,11 +60,10 @@ export default function Profile() {
   ];
 
 
-  if (loading) {
-    return <div className="min-h-screen bg-[#f7f9fc] flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-    </div>;
-  }
+  // Shell renders immediately; values wait for data, and show a dash (not a
+  // fake zero) if the load failed.
+  const stat = (node) =>
+    loading ? <Skeleton className="h-[32px] md:h-[38px] w-32" /> : profile ? node : '—';
 
   return (
     <div className="bg-white">
@@ -76,9 +75,13 @@ export default function Profile() {
               <h1 className="display text-white mb-4">
                 {profile?.username || user?.username}
               </h1>
-              <span className="inline-block px-3 py-1 border border-white/50 text-white text-[11px] uppercase tracking-widest">
-                {profile?.membership?.name || 'Silver'}
-              </span>
+              {loading ? (
+                <Skeleton dark className="h-[26px] w-20" />
+              ) : (
+                <span className="inline-block px-3 py-1 border border-white/50 text-white text-[11px] uppercase tracking-widest">
+                  {profile?.membership?.name || 'Silver'}
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap gap-3">
               <button onClick={() => setShowModal(true)} className="btn-on-dark">
@@ -97,11 +100,11 @@ export default function Profile() {
         <div className="grid sm:grid-cols-2 gap-10 pb-12 mb-12 border-b" style={{ borderColor: 'var(--rule)' }}>
           <div>
             <div className="stat-label">Account Balance</div>
-            <div className="stat-value">${(profile?.wallet?.balance || 0).toFixed(2)}</div>
+            <div className="stat-value">{stat(`$${Number(profile?.wallet?.balance || 0).toFixed(2)}`)}</div>
           </div>
           <div>
             <div className="stat-label">Today&apos;s Earnings</div>
-            <div className="stat-value">${(profile?.today_earnings || 0).toFixed(2)}</div>
+            <div className="stat-value">{stat(`$${Number(profile?.today_earnings || 0).toFixed(2)}`)}</div>
           </div>
         </div>
 
@@ -120,11 +123,11 @@ export default function Profile() {
             </div>
             <div>
               <div className="stat-label">Members Referred</div>
-              <div className="stat-value">{profile?.referral_count || 0}</div>
+              <div className="stat-value">{stat(profile?.referral_count || 0)}</div>
             </div>
             <div>
               <div className="stat-label">Referral Earnings</div>
-              <div className="stat-value">${(profile?.referral_earnings || 0).toFixed(2)}</div>
+              <div className="stat-value">{stat(`$${Number(profile?.referral_earnings || 0).toFixed(2)}`)}</div>
             </div>
           </div>
           <p className="text-[12px] mt-6" style={{ color: 'var(--ink-45)' }}>
@@ -136,13 +139,19 @@ export default function Profile() {
         <div className="mb-16">
           <div className="flex justify-between items-baseline mb-3">
             <span className="eyebrow">Credibility</span>
-            <span className="text-[15px] tnum">{profile?.credibility || 100}%</span>
+            {loading ? (
+              <Skeleton className="h-[18px] w-12" />
+            ) : (
+              <span className="text-[15px] tnum">{profile ? `${profile.credibility || 100}%` : '—'}</span>
+            )}
           </div>
           <div className="w-full h-px" style={{ background: 'var(--rule)' }}>
-            <div
-              className="h-px bg-black"
-              style={{ width: `${profile?.credibility || 100}%` }}
-            ></div>
+            {profile && (
+              <div
+                className="h-px bg-black"
+                style={{ width: `${profile.credibility || 100}%` }}
+              ></div>
+            )}
           </div>
         </div>
 
@@ -196,9 +205,13 @@ export default function Profile() {
                 Share this code to invite others to the platform.
               </p>
               <p className="font-serif text-[32px] tracking-wide mb-8 tnum">
-                {profile?.reference_code}
+                {loading ? <Skeleton className="h-[38px] w-44 mx-auto" /> : profile?.reference_code || '—'}
               </p>
-              <button onClick={copyInviteCode} className="btn-solid w-full">
+              <button
+                onClick={copyInviteCode}
+                disabled={!profile?.reference_code}
+                className="btn-solid w-full disabled:opacity-50"
+              >
                 Copy Code
               </button>
             </div>

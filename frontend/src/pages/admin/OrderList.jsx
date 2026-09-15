@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { StatusBadge, CurrencyDisplay, LoadingSpinner, EmptyState } from '../../components/ui';
+import { StatusBadge, CurrencyDisplay, LoadingSpinner, EmptyState, SkeletonTableRows } from '../../components/ui';
 import api from '../../utils/api';
 
 export default function OrderList() {
@@ -168,11 +168,7 @@ export default function OrderList() {
 
       {/* Properties Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-        {loading ? (
-          <div className="py-12">
-            <LoadingSpinner size="lg" />
-          </div>
-        ) : properties.length === 0 ? (
+        {!loading && properties.length === 0 ? (
           <EmptyState message="No properties found" icon="🏢" />
         ) : (
           <div className="overflow-x-auto">
@@ -235,8 +231,10 @@ export default function OrderList() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {sortedProperties.map((property) => (
+              <tbody className="divide-y divide-gray-200" aria-busy={loading}>
+                {loading ? (
+                  <SkeletonTableRows rows={8} columns={8} />
+                ) : sortedProperties.map((property) => (
                   <tr key={property.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-900">{property.id}</td>
                     <td className="px-6 py-4">

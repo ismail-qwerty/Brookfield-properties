@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
-import { LoadingSpinner } from '../../components/ui';
+import { Skeleton, SkeletonRegion } from '../../components/ui';
 import ChatSupportDashboard from '../support/ChatSupportDashboard';
 
 export default function Support() {
@@ -165,11 +165,6 @@ function UserChatInterface() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : (
         <div className="wrap section-tight">
           <div className="grid lg:grid-cols-[1fr_280px] gap-10">
             {/* Chat Panel */}
@@ -194,7 +189,21 @@ function UserChatInterface() {
               </div>
 
               <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 bg-[var(--paper-alt)]">
-                {messages.length === 0 ? (
+                {loading ? (
+                  <SkeletonRegion label="Loading conversation" className="space-y-4">
+                    {['justify-start w-56', 'justify-end w-40', 'justify-start w-64', 'justify-end w-48'].map((cls, i) => {
+                      const [align, width] = cls.split(' ');
+                      const mine = align === 'justify-end';
+                      return (
+                        <div key={i} className={`flex ${align}`}>
+                          <Skeleton
+                            className={`h-[62px] ${width} rounded-[16px] ${mine ? 'rounded-br-[4px]' : 'rounded-bl-[4px]'}`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </SkeletonRegion>
+                ) : messages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center px-6">
                     <svg className="w-10 h-10 mb-3 text-[var(--ink-25)]" fill="none" stroke="currentColor" strokeWidth={1.25} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
@@ -266,7 +275,7 @@ function UserChatInterface() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] disabled:opacity-50 transition-colors"
-                    disabled={sending || uploading}
+                    disabled={loading || sending || uploading}
                     title="Attach image"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -279,11 +288,11 @@ function UserChatInterface() {
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type your message..."
                     className="flex-1 px-4 py-3 rounded-full bg-[var(--paper-alt)] border border-transparent focus:outline-none focus:border-black focus:bg-white transition-colors text-[14px]"
-                    disabled={sending || uploading}
+                    disabled={loading || sending || uploading}
                   />
                   <button
                     type="submit"
-                    disabled={sending || uploading || (!newMessage.trim() && !selectedImage)}
+                    disabled={loading || sending || uploading || (!newMessage.trim() && !selectedImage)}
                     className="w-11 h-11 rounded-full bg-black text-white hover:bg-[var(--ink-70)] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0 transition-colors"
                   >
                     {uploading ? (
@@ -315,7 +324,6 @@ function UserChatInterface() {
             </aside>
           </div>
         </div>
-      )}
     </div>
   );
 }

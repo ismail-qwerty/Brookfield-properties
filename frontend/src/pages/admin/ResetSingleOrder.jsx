@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { LoadingSpinner } from '../../components/ui';
+import { LoadingSpinner, Skeleton, SkeletonRegion, SkeletonTableRows } from '../../components/ui';
 import api from '../../utils/api';
 
 export default function ResetSingleOrder() {
@@ -71,10 +71,54 @@ export default function ResetSingleOrder() {
     }
   };
 
+  // The form stays hidden until the user loads: the position panel and the
+  // trigger feedback would otherwise be computed against a placeholder 0.
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner size="lg" />
+      <div className="max-w-5xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Select Orders</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            <Link to="/administration" className="link-quiet">Home</Link>
+            <span className="mx-2">/</span>
+            <span>Reset Orders</span>
+          </p>
+        </div>
+
+        <SkeletonRegion label="Loading member and special lots">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
+            <div className="bg-black px-8 py-6">
+              <h2 className="text-xl font-bold text-white">Select Exactly Three Orders</h2>
+            </div>
+            <div className="p-6 space-y-6">
+              <Skeleton className="h-[46px] w-full" />
+              <div>
+                <Skeleton className="h-4 w-36 mb-2" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+              </div>
+              <Skeleton className="h-[60px] w-full rounded-lg" />
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Select Orders:</h3>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 w-24">Select</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Title</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 w-32">Price</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                <SkeletonTableRows rows={4} columns={3} />
+              </tbody>
+            </table>
+          </div>
+        </SkeletonRegion>
       </div>
     );
   }

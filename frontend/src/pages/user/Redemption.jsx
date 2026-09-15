@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
-import { PayoutMethodIcon, CurrencyDisplay } from '../../components/ui';
+import { PayoutMethodIcon, CurrencyDisplay, Skeleton } from '../../components/ui';
 
-const ACCENT = 'linear-gradient(135deg, #6C5CE7 0%, #00C2FF 100%)';
+const ACCENT = 'linear-gradient(135deg, #3a3a3a 0%, #000000 100%)';
 
 const PAYOUT_METHODS = [
   { id: 'paypal', label: 'PayPal' },
@@ -38,7 +38,7 @@ function PillButton({ active, children, ...props }) {
       className="py-3 text-[13px] rounded-xl border transition-all tnum"
       style={
         active
-          ? { background: ACCENT, borderColor: 'transparent', color: '#fff', boxShadow: '0 8px 20px -10px rgba(108,92,231,0.6)' }
+          ? { background: ACCENT, borderColor: 'transparent', color: '#fff', boxShadow: '0 8px 20px -10px rgba(0,0,0,0.6)' }
           : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }
       }
       {...props}
@@ -50,7 +50,8 @@ function PillButton({ active, children, ...props }) {
 
 export default function Redemption() {
   const { user } = useAuth();
-  const [balance, setBalance] = useState(0);
+  const [balance, setBalance] = useState(null);
+  const [balanceFailed, setBalanceFailed] = useState(false);
   const [amount, setAmount] = useState('');
   const [walletPassword, setWalletPassword] = useState('');
   const [method, setMethod] = useState('paypal');
@@ -67,9 +68,10 @@ export default function Redemption() {
   const fetchWallet = async () => {
     try {
       const response = await api.user.getWallet();
-      setBalance(response.data.data.balance || 0);
+      setBalance(Number(response.data.data.balance) || 0);
     } catch (error) {
       console.error('Failed to fetch wallet:', error);
+      setBalanceFailed(true);
     }
   };
 
@@ -78,6 +80,7 @@ export default function Redemption() {
   };
 
   const handleAllAmount = () => {
+    if (balance === null) return;
     setAmount(balance.toString());
   };
 
@@ -143,7 +146,9 @@ export default function Redemption() {
         throw new Error(`Maximum withdrawal is $${(user?.max_withdrawal || 500).toFixed(2)}`);
       }
 
-      if (numAmount > balance) {
+      // Only pre-check once the real balance is known; the server enforces it
+      // either way, so an unloaded balance must not reject a valid request.
+      if (balance !== null && numAmount > balance) {
         throw new Error('Insufficient balance');
       }
 
@@ -190,7 +195,14 @@ export default function Redemption() {
 
         <div className="text-[11px] uppercase tracking-[0.22em] text-white/40 mb-2">Withdraw Funds</div>
         <div className="text-[15px] text-white/60 mb-8">
-          Available balance &middot; <span className="text-white/85 tnum"><CurrencyDisplay amount={balance} /></span>
+          Available balance &middot;{' '}
+          {balance !== null ? (
+            <span className="text-white/85 tnum"><CurrencyDisplay amount={balance} /></span>
+          ) : balanceFailed ? (
+            <span className="text-white/85">—</span>
+          ) : (
+            <Skeleton dark className="inline-block align-middle h-4 w-20" />
+          )}
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -204,7 +216,8 @@ export default function Redemption() {
               <button
                 type="button"
                 onClick={handleAllAmount}
-                className="text-[11px] uppercase tracking-wider text-white/50 hover:text-white transition-colors"
+                disabled={balance === null}
+                className="text-[11px] uppercase tracking-wider text-white/50 hover:text-white transition-colors disabled:opacity-40 disabled:hover:text-white/50"
               >
                 Withdraw all
               </button>
@@ -241,8 +254,8 @@ export default function Redemption() {
                     onClick={() => setMethod(m.id)}
                     className="flex flex-col items-center justify-center gap-2.5 py-5 px-2 rounded-2xl text-center transition-all"
                     style={{
-                      background: active ? 'rgba(108,92,231,0.12)' : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${active ? 'rgba(108,92,231,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                      background: active ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${active ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
                     }}
                   >
                     <PayoutMethodIcon icon={m.id} size={38} active={active} />
@@ -449,7 +462,7 @@ export default function Redemption() {
               className="mb-6 px-4 py-3.5 rounded-xl text-[14px]"
               style={
                 message.type === 'success'
-                  ? { background: 'rgba(0,194,255,0.1)', border: '1px solid rgba(0,194,255,0.3)', color: '#8fe3ff' }
+                  ? { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.25)', color: '#e5e5e5' }
                   : { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5' }
               }
             >
@@ -461,7 +474,7 @@ export default function Redemption() {
             type="submit"
             disabled={loading}
             className="w-full py-4 rounded-xl text-[15px] font-semibold text-white transition-opacity disabled:opacity-40"
-            style={{ background: ACCENT, boxShadow: '0 14px 34px -14px rgba(108,92,231,0.6)' }}
+            style={{ background: ACCENT, boxShadow: '0 14px 34px -14px rgba(0,0,0,0.6)' }}
           >
             {loading ? 'Processing…' : 'Submit Withdrawal Request'}
           </button>

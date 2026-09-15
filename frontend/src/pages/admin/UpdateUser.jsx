@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { LoadingSpinner } from '../../components/ui';
+import { LoadingSpinner, Skeleton, SkeletonRegion } from '../../components/ui';
 import api from '../../utils/api';
 
 export default function UpdateUser() {
@@ -151,10 +151,45 @@ export default function UpdateUser() {
     }
   };
 
+  // Unlike read-only pages, this form can't render early with blank values —
+  // an admin could edit or submit it before the member's data arrives.
   if (loading) {
+    const field = (i) => (
+      <div key={i}>
+        <Skeleton className="h-4 w-32 mb-2" />
+        <Skeleton className="h-12 w-full rounded-lg" />
+      </div>
+    );
+
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner size="lg" />
+      <div className="max-w-5xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Update Member</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            <Link to="/administration" className="link-quiet">Home</Link>
+            <span className="mx-2">/</span>
+            <span>Update Member</span>
+          </p>
+        </div>
+
+        <SkeletonRegion label="Loading member" className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-black px-8 py-6">
+            <h2 className="text-xl font-bold text-white">Member Data</h2>
+          </div>
+          <div className="p-6 space-y-4">
+            {[0, 1, 2, 3].map(field)}
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-300">
+              <Skeleton className="h-4 w-44 mb-4" />
+              <Skeleton className="h-4 w-36 mb-2" />
+              <Skeleton className="h-12 w-full rounded-lg" />
+            </div>
+            {[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(field)}
+            <div className="flex space-x-4 pt-4">
+              <Skeleton className="h-12 w-48 rounded-lg" />
+              <Skeleton className="h-12 w-24 rounded-lg" />
+            </div>
+          </div>
+        </SkeletonRegion>
       </div>
     );
   }
