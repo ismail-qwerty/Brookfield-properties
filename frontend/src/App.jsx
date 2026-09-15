@@ -4,6 +4,7 @@ import { ProtectedRoute, AdminRoute, PublicRoute } from './components/ProtectedR
 import UserLayout from './layouts/UserLayout';
 import AdminLayout from './layouts/AdminLayout';
 import FloatingChatButton from './components/FloatingChatButton';
+import ScrollToTop from './components/ScrollToTop';
 
 // Public Pages
 import Landing from './pages/public/Landing';
@@ -37,6 +38,7 @@ import ChatSupportDashboard from './pages/support/ChatSupportDashboard';
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <AuthProvider>
         <FloatingChatButton />
         <Routes>

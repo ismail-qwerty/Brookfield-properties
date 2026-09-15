@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
 import { Skeleton, VerifiedBadge } from '../../components/ui';
@@ -10,6 +10,7 @@ const MINIMUM_BALANCE_TO_TRADE = 50;
 export default function DataOptimization() {
   const { user, syncVerified } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   // null until the first fetch lands, so nothing renders a fake $0.00 (or a
   // false low-balance warning) before the real numbers arrive.
   const [stats, setStats] = useState(null);
@@ -112,6 +113,24 @@ export default function DataOptimization() {
         </p>
       </section>
 
+      {successMessage && (
+        <section className="wrap pb-6">
+          <div className="border-l-2 border-white bg-white/5 px-5 py-4 flex items-start justify-between gap-6">
+            <div>
+              <h2 className="text-[15px] text-white mb-1">Lot Submitted</h2>
+              <p className="text-[13px] text-white/60">{successMessage}</p>
+            </div>
+            <button
+              onClick={() => setSuccessMessage('')}
+              aria-label="Dismiss"
+              className="text-white/50 hover:text-white text-xl leading-none transition-colors"
+            >
+              &times;
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Low balance notice */}
       {showAlert && stats && (stats.receivedSpecialLot ? stats.balance <= 0 : stats.balance < MINIMUM_BALANCE_TO_TRADE) && (
         <section className="wrap pb-6">
@@ -180,12 +199,6 @@ export default function DataOptimization() {
           >
             {loading ? 'Processing…' : 'Generate Analyst Reviews'}
           </button>
-
-          {successMessage && (
-            <div className="mt-6 max-w-lg mx-auto border-l-2 border-white bg-white/5 px-4 py-3 text-[13px] text-white text-left">
-              {successMessage}
-            </div>
-          )}
 
           {error && (
             <div className="mt-6 max-w-lg mx-auto border-l-2 border-red-500 bg-red-500/10 px-4 py-3 text-[13px] text-red-200 text-left">
