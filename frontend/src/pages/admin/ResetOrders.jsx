@@ -146,7 +146,7 @@ export default function ResetOrders() {
                           Price: <span className="font-semibold text-black">${lot.lot_value}</span>
                         </p>
                         <p className="text-sm text-gray-600">
-                          Daily Commission: <span className="font-semibold text-black">${lot.daily_commission} (27%)</span>
+                          Daily Commission: <span className="font-semibold text-black">${lot.daily_commission}</span>
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">

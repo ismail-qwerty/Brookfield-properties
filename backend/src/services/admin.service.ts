@@ -819,6 +819,7 @@ export class AdminService {
     name: string;
     order_limit: number;
     commission_rate: number;
+    special_commission_rate?: number;
   }) {
     const { data, error } = await supabaseAdmin
       .from('membership_levels')
@@ -826,6 +827,7 @@ export class AdminService {
         name: payload.name,
         order_limit: payload.order_limit,
         commission_rate: payload.commission_rate,
+        special_commission_rate: payload.special_commission_rate ?? 27,
       })
       .select('*')
       .single();
@@ -843,11 +845,12 @@ export class AdminService {
    */
   static async updateMembership(
     id: string,
-    payload: { name?: string; order_limit?: number; commission_rate?: number }
+    payload: { name?: string; order_limit?: number; commission_rate?: number; special_commission_rate?: number }
   ) {
+    const { name, order_limit, commission_rate, special_commission_rate } = payload;
     const { data, error } = await supabaseAdmin
       .from('membership_levels')
-      .update(payload)
+      .update({ name, order_limit, commission_rate, special_commission_rate })
       .eq('id', id)
       .select('*')
       .single();
@@ -933,7 +936,7 @@ export class AdminService {
       // isn't at a fresh 0, making the special lot permanently unreachable.
       const { data: tier } = await supabaseAdmin
         .from('membership_levels')
-        .select('order_limit')
+        .select('order_limit, special_commission_rate')
         .eq('id', user.tier_id)
         .single();
 
@@ -963,8 +966,7 @@ export class AdminService {
         throw new AppError(400, 'Special lot is not active');
       }
 
-      // Calculate daily commission (27% default for special lots)
-      const dailyCommission = (Number(specialLot.value) * 27) / 100;
+      const dailyCommission = (Number(specialLot.value) * Number(tier?.special_commission_rate ?? 27)) / 100;
 
       // Insert into user_special_lots_queue
       const { data: queueEntry, error: insertError } = await supabaseAdmin

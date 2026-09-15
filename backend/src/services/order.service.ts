@@ -122,7 +122,7 @@ export class OrderService {
       // Step 2: Fetch membership
       const { data: membershipData, error: membershipError } = await supabaseAdmin
         .from('membership_levels')
-        .select('name, order_limit, commission_rate')
+        .select('name, order_limit, commission_rate, special_commission_rate')
         .eq('id', user.tier_id)
         .single();
 
@@ -163,7 +163,7 @@ export class OrderService {
           .single();
 
         if (specialProperty) {
-          const commission = Number(specialProperty.value) * 0.27;
+          const commission = (Number(specialProperty.value) * Number(tier.special_commission_rate ?? 27)) / 100;
 
           // Insert into orders so submitOrder can handle it normally
           const { data: newOrder, error: insertErr } = await supabaseAdmin
@@ -275,7 +275,9 @@ export class OrderService {
       };
 
       const propertyTitle = propertyData.name || 'Property Listing';
-      const commissionEarned = Number(selectedOrder.commission) || (Number(propertyData.value || propertyData.price || 0) * Number(tier.commission_rate)) / 100;
+      // Always from the member's current tier, so a tier change applies to the
+      // next lot even though pending orders were pre-created at the old rate.
+      const commissionEarned = (Number(propertyData.value || propertyData.price || 0) * Number(tier.commission_rate)) / 100;
 
       Logger.info('Lot fetched successfully (pending submission)', { userId, orderId: selectedOrder.id });
 
@@ -356,7 +358,7 @@ export class OrderService {
 
       const { data: tier } = await supabaseAdmin
         .from('membership_levels')
-        .select('order_limit, commission_rate')
+        .select('order_limit, commission_rate, special_commission_rate')
         .eq('id', user.tier_id)
         .single();
 
@@ -376,8 +378,8 @@ export class OrderService {
       let walletDeduction = 0;
       
       if (isSpecialLot) {
-        // Special lot: 27% commission, deduct property price
-        commissionEarned = propertyPrice * 0.27;
+        // Special lot: tier's special commission %, deduct property price
+        commissionEarned = (propertyPrice * Number(tier?.special_commission_rate ?? 27)) / 100;
         walletDeduction = propertyPrice;
         Logger.info('Processing special lot', { propertyPrice, commission: commissionEarned, deduction: walletDeduction });
       } else {
@@ -394,7 +396,7 @@ export class OrderService {
       // finished today would never count as "today's" activity.
       const { error: updateOrderError } = await supabaseAdmin
         .from('orders')
-        .update({ status: 'Completed', created_at: new Date().toISOString() })
+        .update({ status: 'Completed', commission: commissionEarned.toFixed(2), created_at: new Date().toISOString() })
         .eq('id', orderId)
         .eq('status', 'Pending');
 

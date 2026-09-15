@@ -81,6 +81,37 @@ export default function AdminDashboard() {
   const filteredUsers = users;
 
   const [verifyingId, setVerifyingId] = useState(null);
+  const [tiers, setTiers] = useState([]);
+  const [tierSavingId, setTierSavingId] = useState(null);
+
+  useEffect(() => {
+    api.admin
+      .getMemberships()
+      .then(({ data }) => {
+        const list = data.data?.memberships || [];
+        setTiers([...list].sort((a, b) => Number(a.commission_rate) - Number(b.commission_rate)));
+      })
+      .catch((err) => console.error('Failed to fetch memberships:', err));
+  }, []);
+
+  const changeTier = async (user, tier) => {
+    if (user.tier_id === tier.id) return;
+    setTierSavingId(user.id);
+    try {
+      await api.admin.updateUser(user.id, { tier_id: tier.id });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === user.id
+            ? { ...u, tier_id: tier.id, membership: { name: tier.name, order_limit: tier.order_limit, commission_rate: tier.commission_rate } }
+            : u
+        )
+      );
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to change membership');
+    } finally {
+      setTierSavingId(null);
+    }
+  };
 
   const toggleVerified = async (user) => {
     setVerifyingId(user.id);
@@ -264,6 +295,28 @@ export default function AdminDashboard() {
                       <td className="px-4 py-3 text-sm text-gray-600">{formatDate(user.last_login_at)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-stretch gap-2">
+                        <div className="grid grid-cols-2 gap-1 flex-shrink-0" role="group" aria-label="Membership level">
+                          {tiers.map((tier) => {
+                            const active = user.tier_id === tier.id;
+                            return (
+                              <button
+                                key={tier.id}
+                                type="button"
+                                disabled={tierSavingId === user.id}
+                                onClick={() => changeTier(user, tier)}
+                                title={`${tier.name}: ${Number(tier.commission_rate)}% normal, ${Number(tier.special_commission_rate ?? 27)}% special`}
+                                aria-pressed={active}
+                                className={`w-7 h-7 rounded border text-[11px] font-bold transition-colors disabled:opacity-50 ${
+                                  active
+                                    ? 'bg-black border-black text-white'
+                                    : 'bg-white border-gray-300 text-gray-600 hover:border-black hover:text-black'
+                                }`}
+                              >
+                                {tier.name.charAt(0).toUpperCase()}
+                              </button>
+                            );
+                          })}
+                        </div>
                         <button
                           type="button"
                           disabled={verifyingId === user.id}

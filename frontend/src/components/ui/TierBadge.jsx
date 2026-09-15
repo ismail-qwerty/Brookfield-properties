@@ -12,6 +12,9 @@ export default function TierBadge({ tier, size = 'md' }) {
     if (tierName.includes('platinum')) {
       return 'bg-black text-white';
     }
+    if (tierName.includes('diamond')) {
+      return 'bg-black text-white ring-2 ring-offset-1 ring-black';
+    }
     return 'bg-gray-200 text-black';
   };
 

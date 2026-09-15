@@ -17,6 +17,7 @@ export default function Memberships() {
     name: '',
     order_limit: 27,
     commission_rate: 0.9,
+    special_commission_rate: 27,
   });
 
   useEffect(() => {
@@ -40,6 +41,7 @@ export default function Memberships() {
       name: '',
       order_limit: 27,
       commission_rate: 0.9,
+      special_commission_rate: 27,
     });
     setError('');
     setShowAddModal(true);
@@ -49,7 +51,8 @@ export default function Memberships() {
     setFormData({
       name: membership.name,
       order_limit: membership.order_limit,
-      commission_rate: membership.commission_rate,
+      commission_rate: Number(membership.commission_rate),
+      special_commission_rate: Number(membership.special_commission_rate ?? 27),
     });
     setSelectedMembership(membership);
     setError('');
@@ -131,7 +134,8 @@ export default function Memberships() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">ID</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Tier Name</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Daily Order Limit</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Commission Rate</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Normal Lot</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Special Lot</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Active Members</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Created</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700">Actions</th>
@@ -139,7 +143,7 @@ export default function Memberships() {
               </thead>
               <tbody className="divide-y divide-gray-200" aria-busy={loading}>
                 {loading ? (
-                  <SkeletonTableRows rows={4} columns={7} cellClassName="px-6 py-6" />
+                  <SkeletonTableRows rows={4} columns={8}cellClassName="px-6 py-6" />
                 ) : memberships.map((membership) => (
                   <tr key={membership.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-900">{membership.id}</td>
@@ -154,8 +158,11 @@ export default function Memberships() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        <span className="text-2xl font-bold text-black">{membership.commission_rate}%</span>
+                        <span className="text-2xl font-bold text-black">{Number(membership.commission_rate)}%</span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-2xl font-bold text-black">{Number(membership.special_commission_rate ?? 27)}%</span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
@@ -225,7 +232,7 @@ export default function Memberships() {
           </div>
           <p className="text-4xl font-bold">
             {memberships.length > 0
-              ? (memberships.reduce((sum, m) => sum + m.commission_rate, 0) / memberships.length).toFixed(2)
+              ? (memberships.reduce((sum, m) => sum + Number(m.commission_rate), 0) / memberships.length).toFixed(2)
               : 0}%
           </p>
           <p className="text-sm opacity-75 mt-2">Average commission rate</p>
@@ -282,7 +289,7 @@ export default function Memberships() {
 
               <div>
                 <label className="label">
-                  Commission Rate (%)
+                  Normal Lot Commission (%)
                 </label>
                 <input
                   type="number"
@@ -301,11 +308,32 @@ export default function Memberships() {
                 </p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-900">
-                  <strong>Example:</strong> With {formData.commission_rate}% commission rate, 
-                  a $66.00 property will earn{' '}
-                  <strong>${((66 * formData.commission_rate) / 100).toFixed(2)}</strong> per task
+              <div>
+                <label className="label">
+                  Special Lot Commission (%)
+                </label>
+                <input
+                  type="number"
+                  name="special_commission_rate"
+                  value={formData.special_commission_rate}
+                  onChange={handleFormChange}
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="27"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Percentage of property value earned on a special lot (e.g., 27 for 27%)
+                </p>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
+                <p className="text-sm text-gray-800">
+                  <strong>Example:</strong> a $66.00 normal lot earns{' '}
+                  <strong>${((66 * formData.commission_rate) / 100).toFixed(2)}</strong>, and a $1,000.00 special lot earns{' '}
+                  <strong>${((1000 * formData.special_commission_rate) / 100).toFixed(2)}</strong>
                 </p>
               </div>
 

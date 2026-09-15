@@ -44,7 +44,7 @@ export class OrderController {
 
     let message = '';
     if (result.is_special_lot) {
-      message = `Special lot completed! Earned $${result.commission.toFixed(2)} (27% commission). Property cost $${result.deduction.toFixed(2)} deducted.`;
+      message = `Special lot completed! Earned $${result.commission.toFixed(2)} commission. Property cost $${result.deduction.toFixed(2)} deducted.`;
     } else {
       message = `Order completed successfully! You earned $${result.commission.toFixed(2)}`;
     }
