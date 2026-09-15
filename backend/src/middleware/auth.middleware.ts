@@ -41,6 +41,17 @@ export const authenticate = async (
   }
 };
 
+export const isSupportStaff = (user?: Pick<User, 'user_type'>) =>
+  user?.user_type === 'ChatSupport' || user?.user_type === 'Admin';
+
+export const requireSupportStaff = (req: Request, res: Response, next: NextFunction) => {
+  if (!isSupportStaff((req as AuthRequest).user)) {
+    return ResponseUtil.forbidden(res, 'Support staff access required');
+  }
+
+  next();
+};
+
 export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
   const user = (req as AuthRequest).user;
   

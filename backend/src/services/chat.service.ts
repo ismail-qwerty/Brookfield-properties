@@ -1,5 +1,31 @@
 import { supabaseAdmin } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { isSupportStaff } from '../middleware/auth.middleware.js';
+import { User } from '../types/index.js';
+
+type ChatUser = Pick<User, 'id' | 'user_type'>;
+
+// A conversation belongs to its customer and its assigned agent; support staff
+// may act on any of them (an agent opens a thread before it's assigned).
+const canAccessConversation = (
+  conv: { user_id: string; support_agent_id: string | null } | null,
+  user: ChatUser
+) => !!conv && (isSupportStaff(user) || conv.user_id === user.id || conv.support_agent_id === user.id);
+
+const fetchConversationAccess = (conversationId: string) =>
+  supabaseAdmin
+    .from('chat_conversations')
+    .select('user_id, support_agent_id')
+    .eq('id', conversationId)
+    .single();
+
+// Throws before the caller touches anything, so no write happens without access.
+const assertConversationAccess = async (conversationId: string, user: ChatUser) => {
+  const { data: conv } = await fetchConversationAccess(conversationId);
+  if (!canAccessConversation(conv, user)) {
+    throw new AppError(403, 'Access denied');
+  }
+};
 
 export class ChatService {
   // User creates or gets existing conversation
@@ -38,11 +64,7 @@ export class ChatService {
   // Get messages for a conversation. With `after` (an ISO timestamp), returns
   // only newer messages, so polling clients don't re-download the whole thread
   // (including base64 image attachments) on every tick.
-  static async getMessages(
-    conversationId: string,
-    user: { id: string; user_type?: string },
-    after?: string
-  ) {
+  static async getMessages(conversationId: string, user: ChatUser, after?: string) {
     let messagesQuery = supabaseAdmin
       .from('chat_messages')
       .select(`
@@ -56,21 +78,14 @@ export class ChatService {
       messagesQuery = messagesQuery.gt('created_at', after);
     }
 
-    // The access check and the fetch are independent round trips to the
-    // database, so run them together; nothing is returned unless access passes.
+    // Reading is side-effect free, so the access check and the fetch can run
+    // together; nothing is returned unless access passes.
     const [{ data: conv }, { data: messages, error }] = await Promise.all([
-      supabaseAdmin
-        .from('chat_conversations')
-        .select('user_id, support_agent_id')
-        .eq('id', conversationId)
-        .single(),
+      fetchConversationAccess(conversationId),
       messagesQuery,
     ]);
 
-    // Support staff can read any thread — including one not yet assigned, which
-    // is exactly the moment an agent first opens it.
-    const isStaff = user.user_type === 'ChatSupport' || user.user_type === 'Admin';
-    if (!conv || (!isStaff && conv.user_id !== user.id && conv.support_agent_id !== user.id)) {
+    if (!canAccessConversation(conv, user)) {
       throw new AppError(403, 'Access denied');
     }
 
@@ -82,10 +97,12 @@ export class ChatService {
   }
 
   // Send a message
-  static async sendMessage(conversationId: string, senderId: string, message: string, imageUrl?: string) {
+  static async sendMessage(conversationId: string, sender: ChatUser, message: string, imageUrl?: string) {
+    await assertConversationAccess(conversationId, sender);
+
     const messageData: any = {
       conversation_id: conversationId,
-      sender_id: senderId,
+      sender_id: sender.id,
     };
 
     if (imageUrl) {
@@ -182,12 +199,14 @@ export class ChatService {
   }
 
   // Mark messages as read
-  static async markAsRead(conversationId: string, userId: string) {
+  static async markAsRead(conversationId: string, user: ChatUser) {
+    await assertConversationAccess(conversationId, user);
+
     const { error } = await supabaseAdmin
       .from('chat_messages')
       .update({ is_read: true })
       .eq('conversation_id', conversationId)
-      .neq('sender_id', userId);
+      .neq('sender_id', user.id);
 
     if (error) {
       throw new AppError(500, 'Failed to mark messages as read');

@@ -23,7 +23,7 @@ export interface User {
   max_withdrawal: number;
   user_status: 'Active' | 'Deactivate';
   wallet_status: 'Active' | 'Deactivate';
-  user_type: 'User' | 'Admin';
+  user_type: 'User' | 'Admin' | 'ChatSupport';
   total_orders: number;
   created_at: string;
   last_login_at: string | null;

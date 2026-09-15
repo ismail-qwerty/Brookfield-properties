@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { ChatController } from '../controllers/chat.controller.js';
-import { authenticate } from '../middleware/auth.middleware.js';
+import { authenticate, requireSupportStaff } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -14,9 +14,10 @@ router.post('/conversations/:conversationId/messages', ChatController.sendMessag
 router.put('/conversations/:conversationId/read', ChatController.markAsRead);
 router.get('/unread-count', ChatController.getUnreadCount);
 
-// Support agent routes
-router.get('/support/conversations', ChatController.getAllConversations);
-router.put('/support/conversations/:conversationId/assign', ChatController.assignConversation);
-router.put('/support/conversations/:conversationId/close', ChatController.closeConversation);
+// Support agent routes: these expose every customer's conversations and
+// contact details, so they're limited to support staff.
+router.get('/support/conversations', requireSupportStaff, ChatController.getAllConversations);
+router.put('/support/conversations/:conversationId/assign', requireSupportStaff, ChatController.assignConversation);
+router.put('/support/conversations/:conversationId/close', requireSupportStaff, ChatController.closeConversation);
 
 export default router;

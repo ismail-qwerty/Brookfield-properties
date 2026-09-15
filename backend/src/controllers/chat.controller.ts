@@ -30,10 +30,9 @@ export class ChatController {
   static async sendMessage(req: Request, res: Response, next: NextFunction) {
     try {
       const conversationId = req.params.conversationId;
-      const userId = (req as AuthRequest).user.id;
       const { message, image_url } = req.body;
 
-      const newMessage = await ChatService.sendMessage(conversationId, userId, message, image_url);
+      const newMessage = await ChatService.sendMessage(conversationId, (req as AuthRequest).user, message, image_url);
       ResponseUtil.success(res, newMessage, 'Message sent', 201);
     } catch (error) {
       next(error);
@@ -43,8 +42,7 @@ export class ChatController {
   static async markAsRead(req: Request, res: Response, next: NextFunction) {
     try {
       const conversationId = req.params.conversationId;
-      const userId = (req as AuthRequest).user.id;
-      await ChatService.markAsRead(conversationId, userId);
+      await ChatService.markAsRead(conversationId, (req as AuthRequest).user);
       ResponseUtil.success(res, null, 'Messages marked as read');
     } catch (error) {
       next(error);
