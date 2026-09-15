@@ -65,8 +65,8 @@ export default function Landing() {
               marginBottom: 'clamp(1.5rem, 4.2vh, 2.75rem)',
             }}
           >
-            Delivering considered real estate solutions — from residential
-            communities to commercial developments — with a commitment to
+            Delivering considered real estate solutions, from residential
+            communities to commercial developments, with a commitment to
             quality and integrity.
           </p>
 

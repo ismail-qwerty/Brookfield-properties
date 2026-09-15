@@ -111,8 +111,8 @@ export default function DataOptimization() {
             <div>
               <h2 className="text-[15px] text-white mb-1">Low Balance</h2>
               <p className="text-[13px] text-white/60">
-                A minimum balance of ${MINIMUM_BALANCE_TO_TRADE.toFixed(2)} is required to generate a lot —
-                you're ${Math.max(0, MINIMUM_BALANCE_TO_TRADE - stats.balance).toFixed(2)} short. Please contact support or add funds.
+                A minimum balance of ${MINIMUM_BALANCE_TO_TRADE.toFixed(2)} is required to generate a lot.
+                You're ${Math.max(0, MINIMUM_BALANCE_TO_TRADE - stats.balance).toFixed(2)} short. Please contact support or add funds.
               </p>
             </div>
             <button

@@ -385,7 +385,7 @@ export default function AdminDashboard() {
                   placeholder="e.g. 50 to credit, -50 to debit"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Positive adds to the balance (credit). Negative subtracts from it (debit) — crediting a negative balance back up also auto-completes any orders that were held pending on it.
+                  Positive adds to the balance (credit). Negative subtracts from it (debit). Crediting a negative balance back up also auto-completes any orders that were held pending on it.
                 </p>
               </div>
               <div>

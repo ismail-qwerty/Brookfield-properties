@@ -187,7 +187,7 @@ export default function Redemption() {
 
           <p className="text-[12px] mt-6" style={{ color: 'var(--ink-45)' }}>
             Withdrawal requests are reviewed before funds are released. Confirm your
-            wallet address carefully — transfers cannot be reversed.
+            wallet address carefully. Transfers cannot be reversed.
           </p>
         </form>
       </div>
