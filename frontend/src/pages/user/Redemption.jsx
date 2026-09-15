@@ -2,13 +2,59 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
+import { PayoutMethodIcon, CurrencyDisplay } from '../../components/ui';
+
+const ACCENT = 'linear-gradient(135deg, #6C5CE7 0%, #00C2FF 100%)';
+
+const PAYOUT_METHODS = [
+  { id: 'paypal', label: 'PayPal' },
+  { id: 'card', label: 'Credit / Debit' },
+  { id: 'ach', label: 'ACH Bank Transfer' },
+  { id: 'crypto', label: 'Cryptocurrency' },
+  { id: 'chime', label: 'Chime' },
+  { id: 'zelle', label: 'Zelle / e-Transfer' },
+];
+
+const CRYPTO_NETWORKS = ['BTC', 'ETH', 'USDT (TRC20)', 'USDT (ERC20)'];
+const ACCOUNT_TYPES = ['Checking', 'Savings'];
+
+const initialDetails = {
+  paypal: { email: '' },
+  card: { name: '', number: '', expiry: '' },
+  ach: { holder: '', bankName: '', routing: '', account: '', accountType: 'Checking' },
+  crypto: { network: 'BTC', address: '' },
+  chime: { handle: '' },
+  zelle: { contact: '' },
+};
+
+const fieldClass =
+  'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-[15px] text-white placeholder-white/25 focus:outline-none focus:border-white/30 transition-colors';
+const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-white/40 mb-2';
+
+function PillButton({ active, children, ...props }) {
+  return (
+    <button
+      type="button"
+      className="py-3 text-[13px] rounded-xl border transition-all tnum"
+      style={
+        active
+          ? { background: ACCENT, borderColor: 'transparent', color: '#fff', boxShadow: '0 8px 20px -10px rgba(108,92,231,0.6)' }
+          : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }
+      }
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function Redemption() {
   const { user } = useAuth();
   const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState('');
   const [walletPassword, setWalletPassword] = useState('');
-  const [walletAddress, setWalletAddress] = useState('');
+  const [method, setMethod] = useState('paypal');
+  const [details, setDetails] = useState(initialDetails);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
@@ -35,6 +81,52 @@ export default function Redemption() {
     setAmount(balance.toString());
   };
 
+  const updateDetail = (key, value) => {
+    setDetails((prev) => ({ ...prev, [method]: { ...prev[method], [key]: value } }));
+  };
+
+  const isMethodComplete = () => {
+    const d = details[method];
+    switch (method) {
+      case 'paypal':
+        return !!d.email.trim();
+      case 'card':
+        return !!d.name.trim() && !!d.number.trim() && !!d.expiry.trim();
+      case 'ach':
+        return !!d.holder.trim() && !!d.bankName.trim() && !!d.routing.trim() && !!d.account.trim();
+      case 'crypto':
+        return !!d.address.trim();
+      case 'chime':
+        return !!d.handle.trim();
+      case 'zelle':
+        return !!d.contact.trim();
+      default:
+        return false;
+    }
+  };
+
+  const buildDestination = () => {
+    const d = details[method];
+    switch (method) {
+      case 'paypal':
+        return `PayPal: ${d.email}`;
+      case 'card':
+        return `Credit/Debit Card: ${d.name}, card ${d.number}, exp ${d.expiry}`;
+      case 'ach':
+        return `ACH Bank Transfer: ${d.holder}, ${d.bankName}, routing ${d.routing}, account ${d.account} (${d.accountType})`;
+      case 'crypto':
+        return `Crypto (${d.network}): ${d.address}`;
+      case 'chime':
+        return `Chime: ${d.handle}`;
+      case 'zelle':
+        return `Zelle / e-Transfer: ${d.contact}`;
+      default:
+        return '';
+    }
+  };
+
+  const methodLabel = PAYOUT_METHODS.find((m) => m.id === method)?.label || '';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -55,10 +147,15 @@ export default function Redemption() {
         throw new Error('Insufficient balance');
       }
 
+      if (!isMethodComplete()) {
+        throw new Error(`Please complete your ${methodLabel} details`);
+      }
+
       await api.user.requestRedemption({
         amount: numAmount,
-        wallet_address: walletAddress,
+        wallet_address: buildDestination(),
         wallet_password: walletPassword,
+        payout_method: method,
       });
 
       setMessage({
@@ -68,7 +165,7 @@ export default function Redemption() {
 
       setAmount('');
       setWalletPassword('');
-      setWalletAddress('');
+      setDetails(initialDetails);
       fetchWallet();
     } catch (error) {
       setMessage({
@@ -81,33 +178,33 @@ export default function Redemption() {
   };
 
   return (
-    <div className="bg-white">
-      <div className="page-head">
-        <div className="wrap">
-          <div className="flex items-center gap-3 text-[12px] text-white/50 mb-5">
-            <Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-            <span>/</span>
-            <span className="text-white/80">Withdraw</span>
-          </div>
-          <h1 className="display text-white">Withdraw Funds</h1>
+    <div style={{ background: '#08080b' }} className="min-h-full text-white">
+      <div className="wrap py-10 md:py-14 max-w-[620px] mx-auto">
+        <div className="flex items-center gap-3 text-[12px] text-white/40 mb-6">
+          <Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
+          <span>/</span>
+          <Link to="/wallet" className="hover:text-white transition-colors">Wallet</Link>
+          <span>/</span>
+          <span className="text-white/70">Withdraw</span>
         </div>
-      </div>
 
-      <div className="wrap-narrow section-tight">
-        {/* Balance */}
-        <div className="border-b pb-8 mb-12" style={{ borderColor: 'var(--rule)' }}>
-          <div className="stat-label">Available Balance &middot; {user?.username}</div>
-          <div className="stat-value">${balance.toFixed(2)}</div>
+        <div className="text-[11px] uppercase tracking-[0.22em] text-white/40 mb-2">Withdraw Funds</div>
+        <div className="text-[15px] text-white/60 mb-8">
+          Available balance &middot; <span className="text-white/85 tnum"><CurrencyDisplay amount={balance} /></span>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="mb-10">
-            <div className="flex items-end justify-between gap-4 mb-2">
-              <label className="label mb-0">Amount</label>
+          {/* Amount */}
+          <div
+            className="rounded-[24px] px-6 py-7 mb-6"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <div className="flex items-end justify-between gap-4 mb-3">
+              <label className={`${labelClass} mb-0`}>Amount</label>
               <button
                 type="button"
                 onClick={handleAllAmount}
-                className="link-quiet text-[12px] uppercase tracking-wider"
+                className="text-[11px] uppercase tracking-wider text-white/50 hover:text-white transition-colors"
               >
                 Withdraw all
               </button>
@@ -117,77 +214,261 @@ export default function Redemption() {
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="field text-[28px] font-serif"
+              className="w-full bg-transparent text-[36px] font-bold tnum text-white placeholder-white/20 focus:outline-none mb-6"
               placeholder="0.00"
               required
             />
-          </div>
 
-          <div className="mb-12">
-            <div className="eyebrow mb-4">Quick Select</div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2.5">
               {quickAmounts.map((val) => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => handleQuickSelect(val)}
-                  className={`py-3 text-[14px] border transition-colors tnum ${
-                    String(val) === String(amount)
-                      ? 'bg-black text-white border-black'
-                      : 'border-gray-300 hover:border-black'
-                  }`}
-                >
+                <PillButton key={val} active={String(val) === String(amount)} onClick={() => handleQuickSelect(val)}>
                   {val}
-                </button>
+                </PillButton>
               ))}
             </div>
           </div>
 
-          <div className="space-y-8 mb-10">
-            <div>
-              <label className="label">Withdrawal Password</label>
-              <input
-                type="password"
-                value={walletPassword}
-                onChange={(e) => setWalletPassword(e.target.value)}
-                className="field"
-                placeholder="Enter withdrawal password"
-                required
-              />
+          {/* Payout method */}
+          <div className="mb-6">
+            <div className={labelClass}>Withdraw Via</div>
+            <div className="grid grid-cols-3 gap-3">
+              {PAYOUT_METHODS.map((m) => {
+                const active = m.id === method;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMethod(m.id)}
+                    className="flex flex-col items-center justify-center gap-2.5 py-5 px-2 rounded-2xl text-center transition-all"
+                    style={{
+                      background: active ? 'rgba(108,92,231,0.12)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${active ? 'rgba(108,92,231,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                    }}
+                  >
+                    <PayoutMethodIcon icon={m.id} size={38} active={active} />
+                    <span className="text-[11px] leading-snug text-white/70">{m.label}</span>
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            <div>
-              <label className="label">Wallet Address</label>
-              <input
-                type="text"
-                value={walletAddress}
-                onChange={(e) => setWalletAddress(e.target.value)}
-                className="field"
-                placeholder="Enter wallet address"
-                required
-              />
-            </div>
+          {/* Method-specific details */}
+          <div
+            className="rounded-[24px] px-6 py-7 mb-6 space-y-5"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">{methodLabel} Details</div>
+
+            {method === 'paypal' && (
+              <div>
+                <label className={labelClass}>PayPal Email</label>
+                <input
+                  type="email"
+                  value={details.paypal.email}
+                  onChange={(e) => updateDetail('email', e.target.value)}
+                  className={fieldClass}
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+            )}
+
+            {method === 'card' && (
+              <>
+                <div>
+                  <label className={labelClass}>Cardholder Name</label>
+                  <input
+                    type="text"
+                    value={details.card.name}
+                    onChange={(e) => updateDetail('name', e.target.value)}
+                    className={fieldClass}
+                    placeholder="Full name on card"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Card Number</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={details.card.number}
+                    onChange={(e) => updateDetail('number', e.target.value)}
+                    className={fieldClass}
+                    placeholder="0000 0000 0000 0000"
+                    maxLength={19}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Expiry (MM/YY)</label>
+                  <input
+                    type="text"
+                    value={details.card.expiry}
+                    onChange={(e) => updateDetail('expiry', e.target.value)}
+                    className={fieldClass}
+                    placeholder="MM/YY"
+                    maxLength={5}
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            {method === 'ach' && (
+              <>
+                <div>
+                  <label className={labelClass}>Account Holder Name</label>
+                  <input
+                    type="text"
+                    value={details.ach.holder}
+                    onChange={(e) => updateDetail('holder', e.target.value)}
+                    className={fieldClass}
+                    placeholder="Full name on account"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Bank Name</label>
+                  <input
+                    type="text"
+                    value={details.ach.bankName}
+                    onChange={(e) => updateDetail('bankName', e.target.value)}
+                    className={fieldClass}
+                    placeholder="e.g. Chase, Bank of America"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Routing Number</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={details.ach.routing}
+                    onChange={(e) => updateDetail('routing', e.target.value)}
+                    className={fieldClass}
+                    placeholder="9-digit routing number"
+                    maxLength={9}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Account Number</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={details.ach.account}
+                    onChange={(e) => updateDetail('account', e.target.value)}
+                    className={fieldClass}
+                    placeholder="Account number"
+                    required
+                  />
+                </div>
+                <div>
+                  <div className={labelClass}>Account Type</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {ACCOUNT_TYPES.map((t) => (
+                      <PillButton key={t} active={details.ach.accountType === t} onClick={() => updateDetail('accountType', t)}>
+                        {t}
+                      </PillButton>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {method === 'crypto' && (
+              <>
+                <div>
+                  <div className={labelClass}>Network</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {CRYPTO_NETWORKS.map((n) => (
+                      <PillButton key={n} active={details.crypto.network === n} onClick={() => updateDetail('network', n)}>
+                        {n}
+                      </PillButton>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Wallet Address</label>
+                  <input
+                    type="text"
+                    value={details.crypto.address}
+                    onChange={(e) => updateDetail('address', e.target.value)}
+                    className={fieldClass}
+                    placeholder="Enter your wallet address"
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            {method === 'chime' && (
+              <div>
+                <label className={labelClass}>Chime $Cashtag or Phone Number</label>
+                <input
+                  type="text"
+                  value={details.chime.handle}
+                  onChange={(e) => updateDetail('handle', e.target.value)}
+                  className={fieldClass}
+                  placeholder="$YourCashtag or phone number"
+                  required
+                />
+              </div>
+            )}
+
+            {method === 'zelle' && (
+              <div>
+                <label className={labelClass}>Zelle / e-Transfer Email or Phone</label>
+                <input
+                  type="text"
+                  value={details.zelle.contact}
+                  onChange={(e) => updateDetail('contact', e.target.value)}
+                  className={fieldClass}
+                  placeholder="Email or phone number"
+                  required
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="mb-6">
+            <label className={labelClass}>Withdrawal Password</label>
+            <input
+              type="password"
+              value={walletPassword}
+              onChange={(e) => setWalletPassword(e.target.value)}
+              className={fieldClass}
+              placeholder="Enter withdrawal password"
+              required
+            />
           </div>
 
           {message.text && (
             <div
-              className={`mb-8 px-4 py-3 text-[14px] border-l-2 ${
+              className="mb-6 px-4 py-3.5 rounded-xl text-[14px]"
+              style={
                 message.type === 'success'
-                  ? 'border-black bg-gray-100 text-black'
-                  : 'border-red-600 bg-red-50 text-red-800'
-              }`}
+                  ? { background: 'rgba(0,194,255,0.1)', border: '1px solid rgba(0,194,255,0.3)', color: '#8fe3ff' }
+                  : { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5' }
+              }
             >
               {message.text}
             </div>
           )}
 
-          <button type="submit" disabled={loading} className="btn-solid w-full">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 rounded-xl text-[15px] font-semibold text-white transition-opacity disabled:opacity-40"
+            style={{ background: ACCENT, boxShadow: '0 14px 34px -14px rgba(108,92,231,0.6)' }}
+          >
             {loading ? 'Processing…' : 'Submit Withdrawal Request'}
           </button>
 
-          <p className="text-[12px] mt-6" style={{ color: 'var(--ink-45)' }}>
+          <p className="text-[12px] mt-6 text-white/40">
             Withdrawal requests are reviewed before funds are released. Confirm your
-            wallet address carefully. Transfers cannot be reversed.
+            payout details carefully. Transfers cannot be reversed.
           </p>
         </form>
       </div>

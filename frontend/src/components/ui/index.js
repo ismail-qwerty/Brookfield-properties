@@ -8,3 +8,4 @@ export { default as EmptyState } from './EmptyState';
 export { default as LoadingSpinner } from './LoadingSpinner';
 export { default as BrandLogo } from './BrandLogo';
 export { default as QuickAccessIcon } from './QuickAccessIcon';
+export { default as PayoutMethodIcon } from './PayoutMethodIcon';
