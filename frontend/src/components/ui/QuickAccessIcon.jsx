@@ -1,17 +1,19 @@
-// Bold, colorful filled glyphs on a tinted tile — the "flat icon" look,
+// Bold filled glyphs on a black/grey tile — the "flat icon" look,
 // hand-built (not pulled from a third-party icon library) so there's no
 // licensing question. Shared between Dashboard and Profile so the Quick
-// Access grid stays visually identical in both places.
+// Access grid stays visually identical in both places. Tiles alternate
+// between black and a mid grey to keep some rhythm across the grid while
+// staying within the site's monochrome palette.
 
 const TILE_COLORS = {
-  user: '#3B82F6',
-  chart: '#8B5CF6',
-  clock: '#F59E0B',
-  card: '#10B981',
-  trending: '#14B8A6',
-  exchange: '#F43F5E',
-  document: '#6366F1',
-  chat: '#F97316',
+  user: '#000000',
+  chart: '#4a4a4a',
+  clock: '#000000',
+  card: '#4a4a4a',
+  trending: '#000000',
+  exchange: '#4a4a4a',
+  document: '#000000',
+  chat: '#4a4a4a',
 };
 
 const GLYPHS = {
