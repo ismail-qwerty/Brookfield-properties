@@ -683,22 +683,27 @@ export class OrderService {
     try {
       Logger.info('Starting auto-assignment of default orders', { userId, orderLimit });
 
-      // Fetch active properties (try both is_active and status fields)
-      let query = supabaseAdmin
+      const { data: pool, error: propError } = await supabaseAdmin
         .from('properties')
-        .select('id, value');
-
-      // Try to filter by is_active first, if that fails try status
-      const { data: properties, error: propError } = await query.limit(50);
+        .select('id, value')
+        .eq('lot_type', 'normal')
+        .eq('status', 'Active');
 
       if (propError) {
         Logger.error('Properties fetch error', { error: propError });
         throw new AppError(400, `Failed to fetch properties: ${propError.message}`);
       }
 
-      if (!properties || properties.length === 0) {
+      if (!pool || pool.length === 0) {
         Logger.error('No properties found in database');
         throw new AppError(400, 'No properties available in system. Please add properties first.');
+      }
+
+      // Fisher-Yates shuffle so each cycle serves a different random set of lots.
+      const properties = [...pool];
+      for (let i = properties.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [properties[i], properties[j]] = [properties[j], properties[i]];
       }
 
       Logger.info('Found properties', { count: properties.length });
