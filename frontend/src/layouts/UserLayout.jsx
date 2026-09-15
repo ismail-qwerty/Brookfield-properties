@@ -123,6 +123,11 @@ export default function UserLayout() {
                   </Link>
                 </li>
                 <li>
+                  <Link to="/terms" className="text-white/60 hover:text-white transition-colors">
+                    Terms &amp; Conditions
+                  </Link>
+                </li>
+                <li>
                   <button
                     onClick={logout}
                     className="text-white/60 hover:text-white transition-colors"

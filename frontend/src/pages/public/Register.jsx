@@ -332,6 +332,13 @@ export default function Register() {
               >
                 {loading ? <LoadingSpinner size="sm" color="white" /> : 'Create Account'}
               </button>
+              <p className="text-[12px] mt-3 text-center" style={{ color: 'var(--ink-45)' }}>
+                By creating an account you agree to our{' '}
+                <Link to="/terms" target="_blank" className="underline" style={{ color: 'var(--ink)' }}>
+                  Terms &amp; Conditions
+                </Link>
+                .
+              </p>
             </div>
           </form>
 

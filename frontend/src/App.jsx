@@ -10,6 +10,7 @@ import ScrollToTop from './components/ScrollToTop';
 import Landing from './pages/public/Landing';
 import Login from './pages/public/Login';
 import Register from './pages/public/Register';
+import Terms from './pages/public/Terms';
 
 // Authenticated User Pages
 import Dashboard from './pages/user/Dashboard';
@@ -46,6 +47,7 @@ function App() {
           {/* PUBLIC ROUTES - No Authentication Required */}
           {/* ============================================ */}
           <Route path="/" element={<Landing />} />
+          <Route path="/terms" element={<Terms />} />
           <Route
             path="/user-login"
             element={
