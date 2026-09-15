@@ -9,6 +9,8 @@ export default function ResetOrders() {
   const [user, setUser] = useState(null);
   const [assignedLots, setAssignedLots] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [removingId, setRemovingId] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchUserOrders();
@@ -27,6 +29,28 @@ export default function ResetOrders() {
       console.error('Failed to fetch user orders:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRemove = async (lot) => {
+    const label = lot.properties?.name || lot.special_lots?.title || 'this special lot';
+    if (!confirm(`Remove ${label} from ${user?.username}'s queue? They will no longer receive it.`)) {
+      return;
+    }
+
+    setError('');
+    setRemovingId(lot.id);
+    try {
+      await api.delete(`/admin/users/${id}/special-lots/${lot.id}`);
+      await fetchUserOrders();
+    } catch (err) {
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          'Failed to remove special lot'
+      );
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -50,6 +74,12 @@ export default function ResetOrders() {
           </p>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="bg-black px-8 py-6">
@@ -104,13 +134,28 @@ export default function ResetOrders() {
                           Daily Commission: <span className="font-semibold text-black">${lot.daily_commission} (27%)</span>
                         </p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        lot.status === 'Completed' ? 'bg-black text-white' :
-                        lot.status === 'Pending' ? 'bg-white text-black border border-black' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
-                        {lot.status}
-                      </span>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          lot.status === 'Completed' ? 'bg-black text-white' :
+                          lot.status === 'Pending' ? 'bg-white text-black border border-black' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {lot.status}
+                        </span>
+                        {/* Delivered lots already exist as real, paid-out
+                            orders, so removing the queue row would hide the
+                            record without undoing anything. */}
+                        {lot.status === 'Pending' && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(lot)}
+                            disabled={removingId === lot.id}
+                            className="text-xs font-semibold text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 disabled:no-underline"
+                          >
+                            {removingId === lot.id ? 'Removing...' : 'Remove'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

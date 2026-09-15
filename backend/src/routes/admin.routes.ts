@@ -96,6 +96,16 @@ router.get(
 );
 
 /**
+ * @route   DELETE /api/v1/admin/users/:id/special-lots/:queueId
+ * @desc    Un-assign a special lot that hasn't been delivered yet
+ * @access  Admin
+ */
+router.delete(
+  '/users/:id/special-lots/:queueId',
+  AdminController.removeSpecialLot
+);
+
+/**
  * @route   POST /api/v1/admin/users/:id/reset-orders
  * @desc    Reset user's completed orders count to zero
  * @access  Admin

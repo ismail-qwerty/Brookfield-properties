@@ -206,6 +206,24 @@ export class AdminController {
   });
 
   /**
+   * @route   DELETE /api/v1/admin/users/:id/special-lots/:queueId
+   * @desc    Un-assign a special lot that hasn't been delivered yet
+   * @access  Admin
+   */
+  static removeSpecialLot = asyncHandler(async (req: Request, res: Response) => {
+    const { id, queueId } = req.params;
+    const admin = (req as AuthenticatedRequest).user;
+
+    if (!admin) {
+      return ResponseUtil.unauthorized(res, 'Authentication required');
+    }
+
+    const result = await AdminService.removeSpecialLot(id, queueId, admin.id);
+
+    return ResponseUtil.success(res, result, 'Special lot removed successfully');
+  });
+
+  /**
    * @route   POST /api/v1/admin/users/:id/reset-orders
    * @desc    Reset user's completed orders count to zero
    * @access  Admin

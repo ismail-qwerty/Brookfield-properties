@@ -1030,6 +1030,63 @@ export class AdminService {
   }
 
   /**
+   * Un-assign a special lot that hasn't been delivered yet
+   */
+  static async removeSpecialLot(userId: string, queueId: string, adminId: string) {
+    try {
+      Logger.info('Admin removing special lot', { userId, queueId, adminId });
+
+      const { data: entry, error: fetchError } = await supabaseAdmin
+        .from('user_special_lots_queue')
+        .select('id, status, trigger_after_order_no')
+        .eq('id', queueId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (fetchError) {
+        Logger.error('Failed to look up special lot for removal', { userId, queueId, error: fetchError });
+        throw new AppError(500, 'Failed to remove special lot');
+      }
+
+      if (!entry) {
+        throw new AppError(404, 'Special lot assignment not found for this user');
+      }
+
+      // A delivered lot already exists as a real order in the user's history
+      // and has been paid out — deleting the queue row would not undo any of
+      // that, it would only hide the record. Only undelivered ones can go.
+      if (entry.status !== 'Pending') {
+        throw new AppError(
+          400,
+          'This special lot has already been delivered to the user, so it can no longer be removed.'
+        );
+      }
+
+      const { error: deleteError } = await supabaseAdmin
+        .from('user_special_lots_queue')
+        .delete()
+        .eq('id', queueId)
+        .eq('user_id', userId)
+        .eq('status', 'Pending');
+
+      if (deleteError) {
+        Logger.error('Failed to remove special lot', { userId, queueId, error: deleteError });
+        throw new AppError(500, 'Failed to remove special lot');
+      }
+
+      Logger.info('Special lot removed successfully', { userId, queueId, adminId });
+
+      return { user_id: userId, removed_id: queueId };
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      Logger.error('Unexpected error in removeSpecialLot', { userId, queueId, error });
+      throw new AppError(500, 'Failed to remove special lot');
+    }
+  }
+
+  /**
    * Reset user's completed orders count to zero
    */
   static async resetUserOrders(userId: string, adminId: string) {
