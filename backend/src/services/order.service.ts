@@ -555,8 +555,17 @@ export class OrderService {
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
-      if (status) {
+      // Lots are pre-created in batches (autoAssignDefaultOrders) and sit
+      // 'Pending' until the user reaches them, so a plain status filter would
+      // list a whole queue of lots never opened. The only Pending order that
+      // belongs in history is one already submitted and left unpaid because
+      // it pushed the balance negative.
+      if (status === 'Pending') {
+        query = query.eq('status', 'Pending').eq('property_name', NEGATIVE_BALANCE_FLAG);
+      } else if (status) {
         query = query.eq('status', status);
+      } else {
+        query = query.or(`status.eq.Completed,and(status.eq.Pending,property_name.eq.${NEGATIVE_BALANCE_FLAG})`);
       }
 
       const { data: orders, count, error } = await query;

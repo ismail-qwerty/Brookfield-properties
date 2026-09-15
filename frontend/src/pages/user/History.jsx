@@ -113,7 +113,9 @@ export default function History() {
         ) : orders.length === 0 ? (
           <div className="py-24 text-center">
             <p className="text-[15px] mb-6" style={{ color: 'var(--ink-45)' }}>
-              No orders in this category yet.
+              {activeFilter === 'Pending'
+                ? 'No unpaid lots. Every submitted lot has been paid.'
+                : 'No orders in this category yet.'}
             </p>
             <Link to="/data-optimization" className="btn-outline">
               Generate Analyst Reviews
