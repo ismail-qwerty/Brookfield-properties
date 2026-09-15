@@ -14,10 +14,31 @@ export const NEGATIVE_BALANCE_FLAG = 'AWAITING_BALANCE_RECOVERY';
 // order, their referrer is credited this fraction of that commission.
 export const REFERRAL_BONUS_RATE = 0.15;
 
-// A user's wallet balance must be at least this much to generate or submit
-// a lot (not just non-negative) — keeps accounts that have drained close to
-// zero from continuing to trade.
+// Until a member has been served their first special lot, their balance must
+// be at least this much to generate or submit a lot. After that the floor no
+// longer applies and the balance only has to stay above zero.
 export const MINIMUM_BALANCE_TO_TRADE = 50;
+
+export async function hasReceivedSpecialLot(userId: string): Promise<boolean> {
+  const { count } = await supabaseAdmin
+    .from('user_special_lots_queue')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'Completed');
+  return (count || 0) > 0;
+}
+
+async function assertBalanceCanTrade(userId: string, balance: number, action: 'generate' | 'submit') {
+  if (await hasReceivedSpecialLot(userId)) {
+    if (balance <= 0) {
+      throw new AppError(403, 'Your account balance must be positive. Please contact support.');
+    }
+    return;
+  }
+  if (balance < MINIMUM_BALANCE_TO_TRADE) {
+    throw new AppError(403, `A minimum balance of $${MINIMUM_BALANCE_TO_TRADE.toFixed(2)} is required to ${action} a lot. Please recharge your account.`);
+  }
+}
 
 export class OrderService {
   /**
@@ -115,9 +136,7 @@ export class OrderService {
         throw new AppError(500, 'Wallet not found');
       }
 
-      if (Number(wallet.balance) < MINIMUM_BALANCE_TO_TRADE) {
-        throw new AppError(403, `A minimum balance of $${MINIMUM_BALANCE_TO_TRADE.toFixed(2)} is required to generate a lot. Please recharge your account.`);
-      }
+      await assertBalanceCanTrade(userId, Number(wallet.balance), 'generate');
 
       // Step 2: Fetch membership
       const { data: membershipData, error: membershipError } = await supabaseAdmin
@@ -417,9 +436,11 @@ export class OrderService {
       }
 
       // Block submission if balance has dropped below the minimum required to trade
-      if (Number(wallet.balance) < MINIMUM_BALANCE_TO_TRADE) {
+      try {
+        await assertBalanceCanTrade(userId, Number(wallet.balance), 'submit');
+      } catch (balanceError) {
         await supabaseAdmin.from('orders').update({ status: 'Pending' }).eq('id', orderId);
-        throw new AppError(403, `A minimum balance of $${MINIMUM_BALANCE_TO_TRADE.toFixed(2)} is required to submit a lot. Please recharge your account.`);
+        throw balanceError;
       }
 
       // Calculate new balance

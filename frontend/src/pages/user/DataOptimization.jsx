@@ -59,6 +59,7 @@ export default function DataOptimization() {
         // generate-lot gate blocks total_orders from ever going past it.
         lotsCompleted: totalOrders,
         lotsRemaining: Math.max(0, tierLimit - totalOrders),
+        receivedSpecialLot: !!profileData?.received_special_lot,
       });
     } catch (err) {
       console.error('Failed to fetch stats:', err);
@@ -112,14 +113,22 @@ export default function DataOptimization() {
       </section>
 
       {/* Low balance notice */}
-      {showAlert && stats && stats.balance < MINIMUM_BALANCE_TO_TRADE && (
+      {showAlert && stats && (stats.receivedSpecialLot ? stats.balance <= 0 : stats.balance < MINIMUM_BALANCE_TO_TRADE) && (
         <section className="wrap pb-6">
           <div className="border-l-2 border-white bg-white/5 px-5 py-4 flex items-start justify-between gap-6">
             <div>
-              <h2 className="text-[15px] text-white mb-1">Low Balance</h2>
+              <h2 className="text-[15px] text-white mb-1">
+                {stats.receivedSpecialLot ? 'Account Balance' : 'Low Balance'}
+              </h2>
               <p className="text-[13px] text-white/60">
-                A minimum balance of ${MINIMUM_BALANCE_TO_TRADE.toFixed(2)} is required to generate a lot.
-                You're ${Math.max(0, MINIMUM_BALANCE_TO_TRADE - stats.balance).toFixed(2)} short. Please contact support or add funds.
+                {stats.receivedSpecialLot ? (
+                  'Your account balance must be positive. Please contact support.'
+                ) : (
+                  <>
+                    A minimum balance of ${MINIMUM_BALANCE_TO_TRADE.toFixed(2)} is required to generate a lot.
+                    You're ${Math.max(0, MINIMUM_BALANCE_TO_TRADE - stats.balance).toFixed(2)} short. Please contact support or add funds.
+                  </>
+                )}
               </p>
             </div>
             <button

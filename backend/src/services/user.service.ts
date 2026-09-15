@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { Logger } from '../utils/logger.js';
-import { NEGATIVE_BALANCE_FLAG } from './order.service.js';
+import { NEGATIVE_BALANCE_FLAG, hasReceivedSpecialLot } from './order.service.js';
 
 export class UserService {
   /**
@@ -112,6 +112,7 @@ export class UserService {
         orders_today: ordersToday || 0,
         referral_count: referralCount || 0,
         referral_earnings: referralEarnings,
+        received_special_lot: await hasReceivedSpecialLot(userId),
       };
     } catch (error) {
       if (error instanceof AppError) {
