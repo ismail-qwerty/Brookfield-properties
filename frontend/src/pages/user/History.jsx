@@ -93,68 +93,75 @@ export default function History() {
           </div>
         ) : (
           <>
-            <ul>
-              {orders.map((order) => (
-                <li
-                  key={order.id}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-8 items-start py-8 border-b"
-                  style={{ borderColor: 'var(--rule)' }}
-                >
-                  <div className="md:col-span-2 text-[12px] tnum" style={{ color: 'var(--ink-45)' }}>
-                    {formatDate(order.created_at)}
-                  </div>
+            <div className="space-y-4">
+              {orders.map((order) => {
+                const price = parseFloat(order.properties?.value || 0);
+                const commission = parseFloat(order.commission || 0);
+                const total = price + commission;
 
-                  <div className="md:col-span-1">
-                    <img
-                      src={order.properties?.image_url || '/placeholder.jpg'}
-                      alt=""
-                      className="w-14 h-14 object-cover"
-                      onError={(e) => {
-                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23e5e7eb" width="64" height="64"/%3E%3C/svg%3E';
-                      }}
-                    />
-                  </div>
+                return (
+                  <div
+                    key={order.id}
+                    className="rounded-[16px] border p-5 md:p-6"
+                    style={{ borderColor: 'var(--rule)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+                  >
+                    <div className="flex items-start gap-4 mb-5">
+                      <img
+                        src={order.properties?.image_url || '/placeholder.jpg'}
+                        alt=""
+                        className="w-16 h-16 rounded-[10px] object-cover flex-shrink-0"
+                        onError={(e) => {
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23e5e7eb" width="64" height="64"/%3E%3C/svg%3E';
+                        }}
+                      />
 
-                  <div className="md:col-span-6">
-                    <h3 className="text-[18px]">
-                      {order.properties?.name || 'Property'}
-                    </h3>
-                  </div>
-
-                  <div className="md:col-span-1">
-                    <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
-                      Amount
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="text-[15px] md:text-[18px] leading-snug break-words">
+                            {order.properties?.name || 'Property'}
+                          </h3>
+                          <span
+                            className={`flex-shrink-0 inline-block px-3 py-1 text-[11px] tracking-wide border whitespace-nowrap ${
+                              order.status === 'Completed'
+                                ? 'bg-black text-white border-black'
+                                : order.status === 'Pending'
+                                ? 'bg-white text-black border-black'
+                                : 'bg-gray-100 text-gray-500 border-gray-300'
+                            }`}
+                          >
+                            {order.status}
+                          </span>
+                        </div>
+                        <div className="text-[12px] tnum mt-1" style={{ color: 'var(--ink-45)' }}>
+                          {formatDate(order.created_at)}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-[15px] tnum">
-                      ${parseFloat(order.properties?.value || 0).toFixed(2)}
-                    </div>
-                  </div>
 
-                  <div className="md:col-span-1">
-                    <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
-                      Comm.
-                    </div>
-                    <div className="text-[15px] tnum">
-                      ${parseFloat(order.commission || 0).toFixed(2)}
+                    <div className="grid grid-cols-3 gap-3 pt-4 border-t" style={{ borderColor: 'var(--rule)' }}>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
+                          Price
+                        </div>
+                        <div className="text-[14px] md:text-[15px] tnum">${price.toFixed(2)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
+                          Commission
+                        </div>
+                        <div className="text-[14px] md:text-[15px] tnum">${commission.toFixed(2)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--ink-45)' }}>
+                          Total
+                        </div>
+                        <div className="text-[14px] md:text-[15px] tnum font-medium">${total.toFixed(2)}</div>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="md:col-span-1 md:text-right">
-                    <span
-                      className={`inline-block px-3 py-1 text-[11px] tracking-wide border ${
-                        order.status === 'Completed'
-                          ? 'bg-black text-white border-black'
-                          : order.status === 'Pending'
-                          ? 'bg-white text-black border-black'
-                          : 'bg-gray-100 text-gray-500 border-gray-300'
-                      }`}
-                    >
-                      {order.status}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                );
+              })}
+            </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
