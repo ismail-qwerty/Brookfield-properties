@@ -80,6 +80,20 @@ export default function AdminDashboard() {
 
   const filteredUsers = users;
 
+  const [verifyingId, setVerifyingId] = useState(null);
+
+  const toggleVerified = async (user) => {
+    setVerifyingId(user.id);
+    try {
+      await api.admin.updateUser(user.id, { is_verified: !user.is_verified });
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, is_verified: !user.is_verified } : u)));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to update verification');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
   const handleAddDebit = async () => {
     if (!selectedUser || !debitAmount) {
       alert('Please enter an amount');
@@ -249,6 +263,21 @@ export default function AdminDashboard() {
                       <td className="px-4 py-3 text-sm text-gray-600">{formatDate(user.created_at)}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{formatDate(user.last_login_at)}</td>
                       <td className="px-4 py-3">
+                        <div className="flex items-stretch gap-2">
+                        <button
+                          type="button"
+                          disabled={verifyingId === user.id}
+                          onClick={() => toggleVerified(user)}
+                          title={user.is_verified ? 'Remove verified badge' : 'Mark as verified'}
+                          className={`w-[68px] flex-shrink-0 flex flex-col items-center justify-center gap-1 rounded border text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+                            user.is_verified
+                              ? 'bg-black border-black text-white hover:bg-gray-800'
+                              : 'bg-white border-gray-300 text-gray-700 hover:border-black hover:text-black'
+                          }`}
+                        >
+                          <VerifiedBadge size={20} light={user.is_verified} />
+                          {user.is_verified ? 'Verified' : 'Verify'}
+                        </button>
                         <div className="flex flex-col space-y-2 min-w-[140px]">
                           {/* Row 1 */}
                           <div className="flex space-x-2">
@@ -302,22 +331,6 @@ export default function AdminDashboard() {
                               {openDropdown === user.id && (
                                 <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                                   <div className="py-1">
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        setOpenDropdown(null);
-                                        try {
-                                          await api.admin.updateUser(user.id, { is_verified: !user.is_verified });
-                                          await fetchUsers(true);
-                                        } catch (err) {
-                                          alert(err.response?.data?.error || 'Failed to update verification');
-                                        }
-                                      }}
-                                      className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                    >
-                                      <VerifiedBadge size={14} />
-                                      {user.is_verified ? 'Remove Verified Badge' : 'Mark as Verified'}
-                                    </button>
                                     <Link
                                       to={`/administration/update-user/${user.id}`}
                                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -351,6 +364,7 @@ export default function AdminDashboard() {
                               )}
                             </div>
                           </div>
+                        </div>
                         </div>
                       </td>
                     </tr>
