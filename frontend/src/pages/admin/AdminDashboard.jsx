@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { StatusBadge, TierBadge, CurrencyDisplay, EmptyState, SkeletonTableRows } from '../../components/ui';
 import api from '../../utils/api';
 
+const PAGE_SIZE = 30;
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
@@ -15,7 +17,16 @@ export default function AdminDashboard() {
   const [debitReason, setDebitReason] = useState('');
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [allUsers, setAllUsers] = useState([]);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [totalUsers, setTotalUsers] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+      setCurrentPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     fetchUsers();
@@ -28,7 +39,7 @@ export default function AdminDashboard() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [currentPage]);
+  }, [currentPage, debouncedSearch]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -51,11 +62,15 @@ export default function AdminDashboard() {
   const fetchUsers = async (isBackgroundRefresh = false) => {
     if (!isBackgroundRefresh) setLoading(true);
     try {
-      const response = await api.admin.getUsers({ page: currentPage, limit: 10 });
-      const fetchedUsers = response.data.data.users || [];
-      setAllUsers(fetchedUsers);
-      setUsers(fetchedUsers);
-      setTotalPages(response.data.data.pagination?.totalPages || 1);
+      const response = await api.admin.getUsers({
+        page: currentPage,
+        limit: PAGE_SIZE,
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      });
+      const pagination = response.data.data.pagination;
+      setUsers(response.data.data.users || []);
+      setTotalPages(Math.max(1, pagination?.totalPages || 1));
+      setTotalUsers(pagination?.total || 0);
     } catch (err) {
       console.error('Failed to fetch users:', err);
     } finally {
@@ -63,18 +78,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // Filter users based on search query
-  const filteredUsers = users.filter((user) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      user.username?.toLowerCase().includes(query) ||
-      user.email?.toLowerCase().includes(query) ||
-      user.phone?.includes(query) ||
-      user.reference_code?.toLowerCase().includes(query) ||
-      user.id?.toString().includes(query)
-    );
-  });
+  const filteredUsers = users;
 
   const handleAddDebit = async () => {
     if (!selectedUser || !debitAmount) {
@@ -228,7 +232,7 @@ export default function AdminDashboard() {
                         <CurrencyDisplay amount={user.today_earnings || 0} className="text-black" />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{user.credibility}%</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{user.referrer?.username || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{user.referrer_name || '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-600 font-mono">{user.reference_code}</td>
                       <td className="px-4 py-3 text-sm">
                         <TierBadge tier={user.membership?.name || 'Silver'} size="sm" />
@@ -339,7 +343,7 @@ export default function AdminDashboard() {
             {/* Pagination */}
             <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
+                Page {currentPage} of {totalPages} &middot; {totalUsers} {debouncedSearch ? 'matching' : 'total'} users
               </div>
               <div className="flex space-x-2">
                 <button

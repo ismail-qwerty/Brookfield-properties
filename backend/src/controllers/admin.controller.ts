@@ -14,8 +14,8 @@ export class AdminController {
     const { page, limit, user_status, wallet_status, tier_id, search } = req.query;
 
     const result = await AdminService.getAllUsers(
-      page ? parseInt(page as string) : 1,
-      limit ? parseInt(limit as string) : 10,
+      Math.max(1, parseInt(page as string) || 1),
+      Math.min(100, Math.max(1, parseInt(limit as string) || 30)),
       {
         user_status,
         wallet_status,

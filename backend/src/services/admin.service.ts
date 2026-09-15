@@ -122,10 +122,19 @@ export class AdminService {
       if (filters?.tier_id) {
         query = query.eq('tier_id', filters.tier_id);
       }
-      if (filters?.search) {
-        query = query.or(
-          `username.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`
-        );
+      // Commas, parens and wildcards would break or widen the PostgREST or() filter.
+      const search = typeof filters?.search === 'string' ? filters.search.replace(/[,()%*\\]/g, '').trim() : '';
+      if (search) {
+        const clauses = [
+          `username.ilike.%${search}%`,
+          `email.ilike.%${search}%`,
+          `phone.ilike.%${search}%`,
+          `reference_code.ilike.%${search}%`,
+        ];
+        if (/^\d+$/.test(search)) {
+          clauses.push(`id.eq.${search}`);
+        }
+        query = query.or(clauses.join(','));
       }
 
       const { data: users, count, error } = await query;
