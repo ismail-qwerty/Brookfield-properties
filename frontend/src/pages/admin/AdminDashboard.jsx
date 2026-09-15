@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { StatusBadge, TierBadge, CurrencyDisplay, EmptyState, SkeletonTableRows } from '../../components/ui';
+import { StatusBadge, TierBadge, CurrencyDisplay, EmptyState, SkeletonTableRows, VerifiedBadge } from '../../components/ui';
 import api from '../../utils/api';
 
 const PAGE_SIZE = 30;
@@ -215,7 +215,10 @@ export default function AdminDashboard() {
                   ) : filteredUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm">{user.id}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{user.username}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
+                        {user.username}
+                        {user.is_verified && <VerifiedBadge size={14} className="ml-1 -mt-0.5" />}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{user.referrer_id || '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{user.phone}</td>
                       <td className="px-4 py-3 text-sm">
@@ -299,6 +302,22 @@ export default function AdminDashboard() {
                               {openDropdown === user.id && (
                                 <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                                   <div className="py-1">
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        setOpenDropdown(null);
+                                        try {
+                                          await api.admin.updateUser(user.id, { is_verified: !user.is_verified });
+                                          await fetchUsers(true);
+                                        } catch (err) {
+                                          alert(err.response?.data?.error || 'Failed to update verification');
+                                        }
+                                      }}
+                                      className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                      <VerifiedBadge size={14} />
+                                      {user.is_verified ? 'Remove Verified Badge' : 'Mark as Verified'}
+                                    </button>
                                     <Link
                                       to={`/administration/update-user/${user.id}`}
                                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

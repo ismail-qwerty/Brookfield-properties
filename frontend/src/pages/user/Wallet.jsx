@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
-import { CurrencyDisplay, PayoutMethodIcon, Skeleton } from '../../components/ui';
+import { CurrencyDisplay, PayoutMethodIcon, Skeleton, VerifiedBadge } from '../../components/ui';
 
 const SURFACE = '#121212';
 const LINE = '#1f1f1f';
@@ -126,7 +126,10 @@ export default function Wallet() {
               {loading ? (
                 <Skeleton dark className="h-4 w-40 mt-0.5" />
               ) : (
-                <>{profile?.membership?.name ? `${profile.membership.name} Member` : 'Member'} &middot; {user?.username}</>
+                <>
+                  {profile?.membership?.name ? `${profile.membership.name} Member` : 'Member'} &middot; {user?.username}
+                  {profile?.is_verified && <VerifiedBadge light size={14} className="ml-1.5 -mt-0.5" />}
+                </>
               )}
             </div>
           </div>

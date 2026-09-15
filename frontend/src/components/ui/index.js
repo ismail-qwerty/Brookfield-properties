@@ -10,3 +10,4 @@ export { default as Skeleton, SkeletonRegion, SkeletonTableRows } from './Skelet
 export { default as BrandLogo } from './BrandLogo';
 export { default as QuickAccessIcon } from './QuickAccessIcon';
 export { default as PayoutMethodIcon } from './PayoutMethodIcon';
+export { default as VerifiedBadge } from './VerifiedBadge';

@@ -92,6 +92,7 @@ export class AdminService {
           user_status,
           wallet_status,
           user_type,
+          is_verified,
           total_orders,
           created_at,
           last_login_at,
@@ -242,6 +243,7 @@ export class AdminService {
           user_status,
           wallet_status,
           user_type,
+          is_verified,
           total_orders,
           created_at,
           last_login_at,
@@ -345,6 +347,10 @@ export class AdminService {
 
       if (updates.user_type !== undefined && ['User', 'Admin', 'ChatSupport'].includes(updates.user_type)) {
         updateData.user_type = updates.user_type;
+      }
+
+      if (typeof updates.is_verified === 'boolean') {
+        updateData.is_verified = updates.is_verified;
       }
 
       // Independent user_status control (global login access)

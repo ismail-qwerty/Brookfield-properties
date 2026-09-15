@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
-import { QuickAccessIcon, Skeleton } from '../../components/ui';
+import { QuickAccessIcon, Skeleton, VerifiedBadge } from '../../components/ui';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -95,7 +95,10 @@ export default function Dashboard() {
         <div className="wrap relative z-10 pt-24 pb-32">
           <div className="max-w-2xl">
             <div className="eyebrow-light mb-6">Your Account</div>
-            <h1 className="display text-white mb-6">Welcome, {user?.username}</h1>
+            <h1 className="display text-white mb-6">
+              Welcome, {user?.username}
+              {stats?.is_verified && <VerifiedBadge light size={34} className="ml-3 -mt-1" />}
+            </h1>
             <p className="lede-light mb-10 max-w-xl">
               Manage your portfolio, review activity, and generate new analyst
               reviews, all from a single place.

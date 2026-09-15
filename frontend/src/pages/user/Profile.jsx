@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
-import { QuickAccessIcon, Skeleton } from '../../components/ui';
+import { QuickAccessIcon, Skeleton, VerifiedBadge } from '../../components/ui';
 
 export default function Profile() {
   const { user, logout } = useAuth();
@@ -74,6 +74,7 @@ export default function Profile() {
             <div>
               <h1 className="display text-white mb-4">
                 {profile?.username || user?.username}
+                {profile?.is_verified && <VerifiedBadge light size={34} className="ml-3 -mt-1" />}
               </h1>
               {loading ? (
                 <Skeleton dark className="h-[26px] w-20" />

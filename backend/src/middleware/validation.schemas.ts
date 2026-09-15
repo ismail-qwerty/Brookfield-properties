@@ -308,7 +308,9 @@ export const updateUserSchema = z.object({
       errorMap: () => ({ message: 'Invalid user type' }),
     })
     .optional(),
-  
+
+  is_verified: z.boolean().optional(),
+
   user_status: z
     .enum(['Active', 'Deactivate'], {
       errorMap: () => ({ message: 'Invalid user status' }),

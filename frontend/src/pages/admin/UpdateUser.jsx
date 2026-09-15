@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { LoadingSpinner, Skeleton, SkeletonRegion } from '../../components/ui';
+import { LoadingSpinner, Skeleton, SkeletonRegion, VerifiedBadge } from '../../components/ui';
 import api from '../../utils/api';
 
 export default function UpdateUser() {
@@ -29,6 +29,7 @@ export default function UpdateUser() {
     tier_id: '',
     balance_adjustment: '',
     current_balance: 0,
+    is_verified: false,
   });
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function UpdateUser() {
         tier_id: userData.tier_id || '',
         balance_adjustment: '',
         current_balance: userData.wallet?.balance || 0,
+        is_verified: !!userData.is_verified,
       });
     } catch (err) {
       console.error('Error fetching user data:', err);
@@ -119,6 +121,7 @@ export default function UpdateUser() {
         max_withdrawal: parseFloat(formData.max_withdrawal),
         balance_adjustment: formData.balance_adjustment !== '' ? parseFloat(formData.balance_adjustment) : undefined,
         referrer_id: formData.parent_id ? parseInt(formData.parent_id) : null,
+        is_verified: formData.is_verified,
       };
 
       // Remove undefined values
@@ -233,6 +236,30 @@ export default function UpdateUser() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
                 disabled
               />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 p-4 rounded-lg border border-gray-300 bg-gray-50">
+              <div className="flex items-center gap-3">
+                <VerifiedBadge size={28} />
+                <div>
+                  <div className="font-semibold text-gray-900">Verified Badge</div>
+                  <div className="text-sm text-gray-600">Shows a verified tick next to this member's name</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={formData.is_verified}
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, is_verified: !prev.is_verified }));
+                  setSuccess('');
+                }}
+                className={`relative w-12 h-7 rounded-full transition-colors flex-shrink-0 ${formData.is_verified ? 'bg-black' : 'bg-gray-300'}`}
+              >
+                <span
+                  className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${formData.is_verified ? 'translate-x-5' : ''}`}
+                />
+              </button>
             </div>
 
             <div>

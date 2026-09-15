@@ -27,6 +27,7 @@ export class UserService {
           user_status,
           wallet_status,
           user_type,
+          is_verified,
           total_orders,
           created_at,
           last_login_at,
