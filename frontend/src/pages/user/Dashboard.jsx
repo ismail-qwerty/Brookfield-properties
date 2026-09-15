@@ -5,7 +5,7 @@ import api from '../../utils/api';
 import { QuickAccessIcon, Skeleton, VerifiedBadge } from '../../components/ui';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, syncVerified } = useAuth();
   const [stats, setStats] = useState(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -13,6 +13,7 @@ export default function Dashboard() {
     let cancelled = false;
     api.user.getProfile()
       .then((res) => {
+        syncVerified(res.data.data?.is_verified);
         if (!cancelled) setStats(res.data.data);
       })
       .catch(() => {
@@ -97,7 +98,7 @@ export default function Dashboard() {
             <div className="eyebrow-light mb-6">Your Account</div>
             <h1 className="display text-white mb-6">
               Welcome, {user?.username}
-              {stats?.is_verified && <VerifiedBadge light size={34} className="ml-3 -mt-1" />}
+              {user?.is_verified &&<VerifiedBadge light size={34} className="ml-3 -mt-1" />}
             </h1>
             <p className="lede-light mb-10 max-w-xl">
               Manage your portfolio, review activity, and generate new analyst

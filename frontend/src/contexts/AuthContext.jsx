@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext(null);
@@ -104,6 +104,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Keeps the stored copy in step with fresh profile data (e.g. an admin
+  // granting the verified badge) so the next load renders it immediately.
+  const syncVerified = useCallback((isVerified) => {
+    if (typeof isVerified !== 'boolean') return;
+    setUser((prev) => {
+      if (!prev || prev.is_verified === isVerified) return prev;
+      const next = { ...prev, is_verified: isVerified };
+      localStorage.setItem('user', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   // Check if user is authenticated
   const isAuthenticated = () => {
     return !!(token && user);
@@ -140,6 +152,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     updateUser,
+    syncVerified,
     isAuthenticated,
     isAdmin,
     isChatSupport,

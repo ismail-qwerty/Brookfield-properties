@@ -5,7 +5,7 @@ import api from '../../utils/api';
 import { QuickAccessIcon, Skeleton, VerifiedBadge } from '../../components/ui';
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, syncVerified } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +19,7 @@ export default function Profile() {
     try {
       const response = await api.user.getProfile();
       setProfile(response.data.data);
+      syncVerified(response.data.data?.is_verified);
     } catch (err) {
       console.error('Failed to fetch profile:', err);
     } finally {
@@ -74,7 +75,7 @@ export default function Profile() {
             <div>
               <h1 className="display text-white mb-4">
                 {profile?.username || user?.username}
-                {profile?.is_verified && <VerifiedBadge light size={34} className="ml-3 -mt-1" />}
+                {user?.is_verified &&<VerifiedBadge light size={34} className="ml-3 -mt-1" />}
               </h1>
               {loading ? (
                 <Skeleton dark className="h-[26px] w-20" />

@@ -77,7 +77,7 @@ function PillButton({ icon, label, onClick, primary = false }) {
 
 export default function Wallet() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, syncVerified } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hideBalance, setHideBalance] = useState(false);
@@ -90,6 +90,7 @@ export default function Wallet() {
     try {
       const response = await api.user.getProfile();
       setProfile(response.data.data);
+      syncVerified(response.data.data?.is_verified);
     } catch (error) {
       console.error('Failed to fetch wallet:', error);
     } finally {
@@ -124,13 +125,14 @@ export default function Wallet() {
             <h1 className="text-[22px] md:text-[26px] font-semibold leading-tight">Wallet</h1>
             <div className="text-[13px] mt-1" style={{ color: MUTED }}>
               {loading ? (
-                <Skeleton dark className="h-4 w-40 mt-0.5" />
+                <Skeleton dark className="inline-block align-middle h-3.5 w-20" />
+              ) : profile?.membership?.name ? (
+                `${profile.membership.name} Member`
               ) : (
-                <>
-                  {profile?.membership?.name ? `${profile.membership.name} Member` : 'Member'} &middot; {user?.username}
-                  {profile?.is_verified && <VerifiedBadge light size={14} className="ml-1.5 -mt-0.5" />}
-                </>
-              )}
+                'Member'
+              )}{' '}
+              &middot; {user?.username}
+              {user?.is_verified && <VerifiedBadge light size={14} className="ml-1.5 -mt-0.5" />}
             </div>
           </div>
           <Link

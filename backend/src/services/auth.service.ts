@@ -276,6 +276,7 @@ export class AuthService {
         user_status: user.user_status,
         wallet_status: user.wallet_status,
         user_type: user.user_type,
+        is_verified: !!user.is_verified,
         total_orders: user.total_orders,
       },
       wallet: wallet || {

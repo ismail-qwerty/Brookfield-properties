@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
-import { Skeleton } from '../../components/ui';
+import { Skeleton, VerifiedBadge } from '../../components/ui';
 
 // Must match backend MINIMUM_BALANCE_TO_TRADE (order.service.ts)
 const MINIMUM_BALANCE_TO_TRADE = 50;
 
 export default function DataOptimization() {
-  const { user } = useAuth();
+  const { user, syncVerified } = useAuth();
   const navigate = useNavigate();
   // null until the first fetch lands, so nothing renders a fake $0.00 (or a
   // false low-balance warning) before the real numbers arrive.
@@ -45,6 +45,7 @@ export default function DataOptimization() {
     try {
       const response = await api.user.getProfile();
       const profileData = response.data.data;
+      syncVerified(profileData?.is_verified);
 
       const tierLimit = profileData?.membership?.order_limit || 27;
       const totalOrders = profileData?.total_orders || 0;
@@ -103,6 +104,7 @@ export default function DataOptimization() {
         <div className="eyebrow-light mb-3">Data Optimization</div>
         <h1 className="font-serif text-[30px] md:text-[42px] leading-tight text-white mb-3">
           Welcome back, {user?.username}
+          {user?.is_verified && <VerifiedBadge light size={28} className="ml-2.5 -mt-1" />}
         </h1>
         <p className="text-white/60 text-[14px] md:text-[15px] max-w-xl">
           Review your position, then generate a new set of analyst reviews for submission.
