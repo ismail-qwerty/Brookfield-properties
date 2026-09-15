@@ -1,20 +1,11 @@
-// Bold filled glyphs on a black/grey tile — the "flat icon" look,
-// hand-built (not pulled from a third-party icon library) so there's no
-// licensing question. Shared between Dashboard and Profile so the Quick
-// Access grid stays visually identical in both places. Tiles alternate
-// between black and a mid grey to keep some rhythm across the grid while
-// staying within the site's monochrome palette.
+// Bold filled glyphs on a grey tile — the "flat icon" look, hand-built (not
+// pulled from a third-party icon library) so there's no licensing question.
+// Shared between Dashboard and Profile so the Quick Access grid stays visually
+// identical in both places.
 
-const TILE_COLORS = {
-  user: '#000000',
-  chart: '#4a4a4a',
-  clock: '#000000',
-  card: '#4a4a4a',
-  trending: '#000000',
-  exchange: '#4a4a4a',
-  document: '#000000',
-  chat: '#4a4a4a',
-};
+// Glyph cut-outs (card stripe, document lines, chat dots) are painted in this
+// same color so they read as holes through the white shape.
+const TILE_COLOR = '#4a4a4a';
 
 const GLYPHS = {
   user: (
@@ -39,8 +30,8 @@ const GLYPHS = {
   card: (
     <>
       <rect x="6" y="11" width="28" height="19" rx="3.5" fill="#fff" />
-      <rect x="6" y="16" width="28" height="4.5" fill={TILE_COLORS.card} />
-      <rect x="10.5" y="24" width="8" height="2.6" rx="1.3" fill={TILE_COLORS.card} />
+      <rect x="6" y="16" width="28" height="4.5" fill={TILE_COLOR} />
+      <rect x="10.5" y="24" width="8" height="2.6" rx="1.3" fill={TILE_COLOR} />
     </>
   ),
   trending: (
@@ -60,27 +51,26 @@ const GLYPHS = {
   document: (
     <>
       <path d="M10 6h13l7 7v21a2 2 0 01-2 2H10a2 2 0 01-2-2V8a2 2 0 012-2z" fill="#fff" />
-      <path d="M23 6v7h7" fill={TILE_COLORS.document} />
-      <rect x="12.5" y="20" width="15" height="2.4" rx="1.2" fill={TILE_COLORS.document} />
-      <rect x="12.5" y="25.5" width="15" height="2.4" rx="1.2" fill={TILE_COLORS.document} />
+      <path d="M23 6v7h7" fill={TILE_COLOR} />
+      <rect x="12.5" y="20" width="15" height="2.4" rx="1.2" fill={TILE_COLOR} />
+      <rect x="12.5" y="25.5" width="15" height="2.4" rx="1.2" fill={TILE_COLOR} />
     </>
   ),
   chat: (
     <>
       <path d="M6 9a3 3 0 013-3h22a3 3 0 013 3v14a3 3 0 01-3 3H15l-7 6v-6a3 3 0 01-3-3z" fill="#fff" />
-      <circle cx="14" cy="16" r="2" fill={TILE_COLORS.chat} />
-      <circle cx="20" cy="16" r="2" fill={TILE_COLORS.chat} />
-      <circle cx="26" cy="16" r="2" fill={TILE_COLORS.chat} />
+      <circle cx="14" cy="16" r="2" fill={TILE_COLOR} />
+      <circle cx="20" cy="16" r="2" fill={TILE_COLOR} />
+      <circle cx="26" cy="16" r="2" fill={TILE_COLOR} />
     </>
   ),
 };
 
 export default function QuickAccessIcon({ icon, size = 56 }) {
-  const color = TILE_COLORS[icon] || '#6B7280';
   return (
     <div
       className="flex items-center justify-center rounded-[18px] flex-shrink-0"
-      style={{ width: size, height: size, background: color }}
+      style={{ width: size, height: size, background: TILE_COLOR }}
     >
       <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 40 40" aria-hidden="true">
         {GLYPHS[icon]}

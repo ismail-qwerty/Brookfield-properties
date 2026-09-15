@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import StarRating from '../../components/ui/StarRating';
 import api from '../../utils/api';
 
-const REVIEWS = [
+const POSITIVE_REVIEWS = [
   "The architecture here is absolutely breathtaking, truly a masterpiece of modern design!",
   "Located in a prime area with excellent amenities and transportation links.",
   "Outstanding build quality and attention to detail throughout the property.",
@@ -11,11 +11,23 @@ const REVIEWS = [
   "Exceptional views and well-designed living spaces for modern lifestyles.",
 ];
 
+const NEGATIVE_REVIEWS = [
+  "Overpriced for the location; comparable properties nearby offer far better value.",
+  "Noticeable signs of poor maintenance, with visible wear in several common areas.",
+  "Limited access to public transport and very few amenities within walking distance.",
+  "Rental yield projections look optimistic given the current local market.",
+  "Dated interior finishes that will likely need costly renovation soon.",
+];
+
+const REVIEWS = [...POSITIVE_REVIEWS, ...NEGATIVE_REVIEWS];
+
 export default function SubmitOrder() {
   const navigate = useNavigate();
   const location = useLocation();
   const [orderData, setOrderData] = useState(null);
   const [selectedReview, setSelectedReview] = useState('');
+  // Cosmetic only: the score isn't sent with the order.
+  const [rating, setRating] = useState(5);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -133,8 +145,8 @@ export default function SubmitOrder() {
         <div className="mb-10">
           <div className="label">Score</div>
           <div className="flex items-center gap-3">
-            <StarRating rating={5} size="lg" />
-            <span className="text-[13px] tnum" style={{ color: 'var(--ink-45)' }}>(5.0)</span>
+            <StarRating rating={rating} onChange={setRating} size="lg" label="Score" />
+            <span className="text-[13px] tnum" style={{ color: 'var(--ink-45)' }}>({rating.toFixed(1)})</span>
           </div>
         </div>
 
@@ -146,11 +158,20 @@ export default function SubmitOrder() {
             onChange={(e) => setSelectedReview(e.target.value)}
             className="field"
           >
-            {REVIEWS.map((review, index) => (
-              <option key={index} value={review}>
-                {review}
-              </option>
-            ))}
+            <optgroup label="Positive">
+              {POSITIVE_REVIEWS.map((review) => (
+                <option key={review} value={review}>
+                  {review}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Negative">
+              {NEGATIVE_REVIEWS.map((review) => (
+                <option key={review} value={review}>
+                  {review}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </div>
 
