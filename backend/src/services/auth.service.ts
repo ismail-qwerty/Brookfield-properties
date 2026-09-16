@@ -10,6 +10,29 @@ export const SIGNUP_BONUS = 15;
 
 export class AuthService {
   /**
+   * Whether a request carries a valid token belonging to an admin. Used by the
+   * public register route, which the admin panel also calls while signed in.
+   */
+  static async isAdminRequest(authHeader?: string): Promise<boolean> {
+    try {
+      if (!authHeader) return false;
+      const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+      const decoded = jwt.verify(token, ENV.JWT.SECRET) as { userId?: string };
+      if (!decoded?.userId) return false;
+
+      const { data: caller } = await supabaseAdmin
+        .from('users')
+        .select('user_type')
+        .eq('id', decoded.userId)
+        .single();
+
+      return caller?.user_type === 'Admin';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Credit the signup bonus to a freshly created account. Best-effort: the
    * account already exists by this point, so a failure here is logged rather
    * than thrown, which would leave the caller thinking registration failed.
@@ -78,7 +101,7 @@ export class AuthService {
     password: string;
     wallet_password: string;
     reference_code: string;
-  }) {
+  }, options: { skipSignupBonus?: boolean } = {}) {
     const {
       username,
       full_name,
@@ -209,7 +232,11 @@ export class AuthService {
       createdUser = insertedUser;
     }
 
-    await this.creditSignupBonus(String(createdUser.id), createdUser.username);
+    // Accounts an admin creates skip the bonus; the admin sets their opening
+    // balance directly instead.
+    if (!options.skipSignupBonus) {
+      await this.creditSignupBonus(String(createdUser.id), createdUser.username);
+    }
 
     const token = this.generateToken(String(createdUser.id));
 

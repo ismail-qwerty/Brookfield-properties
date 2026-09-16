@@ -34,15 +34,22 @@ export class AuthController {
       reference_code,
     } = req.body;
 
-    const result = await AuthService.register({
-      username,
-      full_name,
-      email,
-      phone,
-      password,
-      wallet_password,
-      reference_code,
-    });
+    // Registration is public, but the admin panel creates members through it
+    // while signed in. Those accounts skip the signup bonus.
+    const createdByAdmin = await AuthService.isAdminRequest(req.headers.authorization);
+
+    const result = await AuthService.register(
+      {
+        username,
+        full_name,
+        email,
+        phone,
+        password,
+        wallet_password,
+        reference_code,
+      },
+      { skipSignupBonus: createdByAdmin }
+    );
 
     return ResponseUtil.created(
       res,

@@ -14,6 +14,7 @@ export default function AddMember() {
   const [formData, setFormData] = useState({
     username: '',
     full_name: '',
+    reference_code: '',
     parent_id: '',
     phone: '',
     email_local: '',
@@ -146,6 +147,7 @@ export default function AddMember() {
         password: formData.password,
         confirm_password: formData.password,
         wallet_password: formData.wallet_password,
+        reference_code: formData.reference_code.trim(),
       };
 
       const registerResponse = await api.auth.register(payload);
@@ -252,6 +254,23 @@ export default function AddMember() {
                 placeholder="Enter Complete Name"
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Reference Code
+              </label>
+              <input
+                type="text"
+                name="reference_code"
+                value={formData.reference_code}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Code this member was invited with (optional)"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Links the member to whoever invited them, the same as the public signup form.
+              </p>
             </div>
 
             <div>
