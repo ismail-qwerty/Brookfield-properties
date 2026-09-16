@@ -85,6 +85,7 @@ export default function Profile() {
     ? new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : '—';
   const credibility = profile?.credibility ?? 100;
+  const referralPercent = profile?.referral_bonus_percent ?? 27;
   const tierLimit = profile?.membership?.order_limit || 27;
   const completed = profile?.total_orders || 0;
 
@@ -232,7 +233,7 @@ export default function Profile() {
             <div className="grid grid-cols-3 gap-4 py-5" style={{ borderTop: `1px solid ${DIVIDER}`, borderBottom: `1px solid ${DIVIDER}` }}>
               <div>
                 <div className="text-[10px] uppercase tracking-[0.14em] mb-1.5" style={{ color: 'var(--ink-45)' }}>Bonus</div>
-                <div className="text-[18px] tnum">15%</div>
+                <div className="text-[18px] tnum">{referralPercent}%</div>
               </div>
               <div>
                 <div className="text-[10px] uppercase tracking-[0.14em] mb-1.5" style={{ color: 'var(--ink-45)' }}>Referred</div>
@@ -247,7 +248,7 @@ export default function Profile() {
             </div>
 
             <p className="text-[12px] leading-relaxed mt-5 mb-6" style={{ color: 'var(--ink-45)' }}>
-              Earn 15% of the commission your invitees make on every completed analyst review, credited directly to
+              Earn {referralPercent}% of the commission your invitees make on every completed analyst review, credited directly to
               your balance.
             </p>
 

@@ -12,7 +12,7 @@ export const NEGATIVE_BALANCE_FLAG = 'AWAITING_BALANCE_RECOVERY';
 
 // Referral bonus: whenever a referred user earns commission on a completed
 // order, their referrer is credited this fraction of that commission.
-export const REFERRAL_BONUS_RATE = 0.15;
+export const REFERRAL_BONUS_RATE = 0.27;
 
 // Until a member has been served their first special lot, their balance must
 // be at least this much to generate or submit a lot. After that the floor no
@@ -91,7 +91,7 @@ export class OrderService {
       await supabaseAdmin.from('debits_log').insert({
         user_id: referrerId,
         amount: bonus,
-        reason: `Referral bonus (15%) from ${sourceUsername}'s order commission`,
+        reason: `Referral bonus (${Math.round(REFERRAL_BONUS_RATE * 100)}%) from ${sourceUsername}'s order commission`,
         applied_by_admin_id: null,
       });
 
@@ -487,7 +487,7 @@ export class OrderService {
         .update({ total_orders: (user.total_orders || 0) + 1 })
         .eq('id', userId);
 
-      // Pay the referrer their 15% cut of the commission just earned, if any.
+      // Pay the referrer their REFERRAL_BONUS_RATE cut of the commission just earned, if any.
       if (user.referrer_id) {
         await this.payReferralBonus(user.referrer_id, commissionEarned, user.username);
       }

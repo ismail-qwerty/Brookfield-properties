@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { Logger } from '../utils/logger.js';
-import { NEGATIVE_BALANCE_FLAG, hasReceivedSpecialLot } from './order.service.js';
+import { NEGATIVE_BALANCE_FLAG, REFERRAL_BONUS_RATE, hasReceivedSpecialLot } from './order.service.js';
 
 export class UserService {
   /**
@@ -82,7 +82,7 @@ export class UserService {
         .gte('created_at', today.toISOString());
 
       // Referral stats: how many people this user has referred, and how
-      // much they've earned in referral bonuses (15% of each referred
+      // much they've earned in referral bonuses (REFERRAL_BONUS_RATE of each referred
       // user's commission — see OrderService.payReferralBonus).
       const { count: referralCount } = await supabaseAdmin
         .from('users')
@@ -113,6 +113,7 @@ export class UserService {
         referral_count: referralCount || 0,
         referral_earnings: referralEarnings,
         received_special_lot: await hasReceivedSpecialLot(userId),
+        referral_bonus_percent: Math.round(REFERRAL_BONUS_RATE * 100),
       };
     } catch (error) {
       if (error instanceof AppError) {
