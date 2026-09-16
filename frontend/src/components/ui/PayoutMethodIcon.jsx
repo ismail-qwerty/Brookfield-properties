@@ -1,73 +1,65 @@
-// Monochrome-on-dark glyphs for withdrawal payout methods. Icons are pure
-// white strokes/fills (no background-matched cutouts) so the tile behind
-// them can switch between a neutral glass surface and the accent gradient
-// (selected state) without redrawing the glyph.
-
+// Brand marks for the payout methods, drawn as white glyphs so they sit on the
+// dark tiles without a colour box. PayPal, Visa, Mastercard, Bitcoin and Zelle
+// paths come from Simple Icons (CC0). ACH is a generic bank (no brand), and
+// Chime is set as its wordmark since no open mark exists for it.
 const GLYPHS = {
   paypal: (
-    <text x="20" y="27" textAnchor="middle" fontFamily="Georgia, 'Times New Roman', serif" fontSize="20" fontWeight="700" fill="#fff">
-      P
-    </text>
+    <svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true" className="w-[58%] h-[58%]">
+      <path d="M15.607 4.653H8.941L6.645 19.251H1.82L4.862 0h7.995c3.754 0 6.375 2.294 6.473 5.513-.648-.478-2.105-.86-3.722-.86m6.57 5.546c0 3.41-3.01 6.853-6.958 6.853h-2.493L11.595 24H6.74l1.845-11.538h3.592c4.208 0 7.346-3.634 7.153-6.949a5.24 5.24 0 0 1 2.848 4.686M9.653 5.546h6.408c.907 0 1.942.222 2.363.541-.195 2.741-2.655 5.483-6.441 5.483H8.714Z" />
+    </svg>
   ),
   card: (
-    <>
-      <rect x="6" y="11" width="28" height="19" rx="3.5" fill="none" stroke="#fff" strokeWidth="2.2" />
-      <rect x="6" y="16" width="28" height="4.5" fill="#fff" />
-      <rect x="10.5" y="24" width="8" height="2.6" rx="1.3" fill="#fff" />
-    </>
+    <span className="flex items-center gap-[7%] w-[86%] justify-center">
+      <svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true" className="w-1/2">
+        <path d="M9.112 8.262L5.97 15.758H3.92L2.374 9.775c-.094-.368-.175-.503-.461-.658C1.447 8.864.677 8.627 0 8.479l.046-.217h3.3a.904.904 0 01.894.764l.817 4.338 2.018-5.102zm8.033 5.049c.008-1.979-2.736-2.088-2.717-2.972.006-.269.262-.555.822-.628a3.66 3.66 0 011.913.336l.34-1.59a5.207 5.207 0 00-1.814-.333c-1.917 0-3.266 1.02-3.278 2.479-.012 1.079.963 1.68 1.698 2.04.756.367 1.01.603 1.006.931-.005.504-.602.725-1.16.734-.975.015-1.54-.263-1.992-.473l-.351 1.642c.453.208 1.289.39 2.156.398 2.037 0 3.37-1.006 3.377-2.564m5.061 2.447H24l-1.565-7.496h-1.656a.883.883 0 00-.826.55l-2.909 6.946h2.036l.405-1.12h2.488zm-2.163-2.656l1.02-2.815.588 2.815zm-8.16-4.84l-1.603 7.496H8.34l1.605-7.496z" />
+      </svg>
+      <svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true" className="w-[42%]">
+        <path d="M11.343 18.031c.058.049.12.098.181.146-1.177.783-2.59 1.238-4.107 1.238C3.32 19.416 0 16.096 0 12c0-4.095 3.32-7.416 7.416-7.416 1.518 0 2.931.456 4.105 1.238-.06.051-.12.098-.165.15C9.6 7.489 8.595 9.688 8.595 12c0 2.311 1.001 4.51 2.748 6.031zm5.241-13.447c-1.52 0-2.931.456-4.105 1.238.06.051.12.098.165.15C14.4 7.489 15.405 9.688 15.405 12c0 2.31-1.001 4.507-2.748 6.031-.058.049-.12.098-.181.146 1.177.783 2.588 1.238 4.107 1.238C20.68 19.416 24 16.096 24 12c0-4.094-3.32-7.416-7.416-7.416zM12 6.174c-.096.075-.189.15-.28.231C10.156 7.764 9.169 9.765 9.169 12c0 2.236.987 4.236 2.551 5.595.09.08.185.158.28.232.096-.074.189-.152.28-.232 1.563-1.359 2.551-3.359 2.551-5.595 0-2.235-.987-4.236-2.551-5.595-.09-.08-.184-.156-.28-.231z" />
+      </svg>
+    </span>
   ),
   ach: (
-    <>
+    <svg viewBox="0 0 40 40" aria-hidden="true" className="w-[58%] h-[58%]">
       <path d="M20 6l15 9H5l15-9z" fill="#fff" />
       <rect x="8" y="17" width="3.4" height="11" fill="#fff" />
       <rect x="18.3" y="17" width="3.4" height="11" fill="#fff" />
       <rect x="28.6" y="17" width="3.4" height="11" fill="#fff" />
       <rect x="5" y="30" width="30" height="3.4" rx="1" fill="#fff" />
-    </>
+    </svg>
   ),
   crypto: (
-    <path
-      d="M20 5l13 7.5v15L20 35 7 27.5v-15L20 5zM20 5v30M7 12.5l13 7.5 13-7.5M7 27.5l13-7.5 13 7.5"
-      fill="none"
-      stroke="#fff"
-      strokeWidth="2"
-      strokeLinejoin="round"
-      strokeLinecap="round"
-    />
+    <svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true" className="w-[62%] h-[62%]">
+      <path d="M23.638 14.904c-1.602 6.43-8.113 10.34-14.542 8.736C2.67 22.05-1.244 15.525.362 9.105 1.962 2.67 8.475-1.243 14.9.358c6.43 1.605 10.342 8.115 8.738 14.548v-.002zm-6.35-4.613c.24-1.59-.974-2.45-2.64-3.03l.54-2.153-1.315-.33-.525 2.107c-.345-.087-.705-.167-1.064-.25l.526-2.127-1.32-.33-.54 2.165c-.285-.067-.565-.132-.84-.2l-1.815-.45-.35 1.407s.975.225.955.236c.535.136.63.486.615.766l-1.477 5.92c-.075.166-.24.406-.614.314.015.02-.96-.24-.96-.24l-.66 1.51 1.71.426.93.242-.54 2.19 1.32.327.54-2.17c.36.1.705.19 1.05.273l-.51 2.154 1.32.33.545-2.19c2.24.427 3.93.257 4.64-1.774.57-1.637-.03-2.58-1.217-3.196.854-.193 1.5-.76 1.68-1.93h.01zm-3.01 4.22c-.404 1.64-3.157.75-4.05.53l.72-2.9c.896.23 3.757.67 3.33 2.37zm.41-4.24c-.37 1.49-2.662.735-3.405.55l.654-2.64c.744.18 3.137.524 2.75 2.084v.006z" />
+    </svg>
   ),
   chime: (
-    <>
-      <path
-        d="M20 6a2 2 0 012 2v1.3c4.8 1.1 8 5.4 8 10.4v5.8l2.6 3.5H7.4L10 25.5v-5.8c0-5 3.2-9.3 8-10.4V8a2 2 0 012-2z"
-        fill="#fff"
-      />
-      <circle cx="20" cy="31" r="2" fill="#fff" />
-    </>
+    <span
+      className="text-white font-semibold lowercase tracking-tight leading-none"
+      style={{ fontSize: '0.36em', letterSpacing: '-0.01em' }}
+    >
+      chime
+    </span>
   ),
   zelle: (
-    <>
-      <path d="M8 16c0-4.5 4-8 9-8h6" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" />
-      <path d="M19 4l4 4-4 4" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M32 24c0 4.5-4 8-9 8h-6" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" />
-      <path d="M21 36l-4-4 4-4" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-    </>
+    <svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true" className="w-[52%] h-[52%]">
+      <path d="M13.559 24h-2.841a.483.483 0 0 1-.483-.483v-2.765H5.638a.667.667 0 0 1-.666-.666v-2.234a.67.67 0 0 1 .142-.412l8.139-10.382h-7.25a.667.667 0 0 1-.667-.667V3.914c0-.367.299-.666.666-.666h4.23V.483c0-.266.217-.483.483-.483h2.841c.266 0 .483.217.483.483v2.765h4.323c.367 0 .666.299.666.666v2.137a.67.67 0 0 1-.141.41l-8.19 10.481h7.665c.367 0 .666.299.666.666v2.477a.667.667 0 0 1-.666.667h-4.32v2.765a.483.483 0 0 1-.483.483Z" />
+    </svg>
   ),
 };
 
 export default function PayoutMethodIcon({ icon, size = 40, active = false }) {
   return (
     <div
-      className="flex items-center justify-center rounded-[14px] flex-shrink-0 transition-all duration-200"
+      className="flex items-center justify-center rounded-[14px] flex-shrink-0 transition-all duration-200 overflow-hidden"
       style={{
         width: size,
         height: size,
+        fontSize: size,
         background: active ? 'linear-gradient(135deg, #4a4a4a 0%, #000000 100%)' : '#1a1a1a',
         boxShadow: active ? '0 8px 22px -8px rgba(255,255,255,0.2)' : 'none',
       }}
     >
-      <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 40 40" aria-hidden="true">
-        {GLYPHS[icon]}
-      </svg>
+      {GLYPHS[icon]}
     </div>
   );
 }
