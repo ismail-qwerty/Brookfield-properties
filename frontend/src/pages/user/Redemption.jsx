@@ -2,9 +2,17 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
-import { PayoutMethodIcon, CurrencyDisplay, Skeleton } from '../../components/ui';
-
-const ACCENT = 'linear-gradient(135deg, #3a3a3a 0%, #000000 100%)';
+import {
+  PayoutMethodIcon,
+  CurrencyDisplay,
+  Skeleton,
+  CARD,
+  HERO_CARD,
+  FIELD,
+  LABEL,
+  MUTED,
+  HAIRLINE,
+} from '../../components/ui';
 
 const PAYOUT_METHODS = [
   { id: 'paypal', label: 'PayPal' },
@@ -27,20 +35,14 @@ const initialDetails = {
   zelle: { contact: '' },
 };
 
-const fieldClass =
-  'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-[15px] text-white placeholder-white/25 focus:outline-none focus:border-white/30 transition-colors';
-const labelClass = 'block text-[11px] uppercase tracking-[0.16em] text-white/40 mb-2';
-
 function PillButton({ active, children, ...props }) {
   return (
     <button
       type="button"
-      className="py-3 text-[13px] rounded-xl border transition-all tnum"
-      style={
-        active
-          ? { background: ACCENT, borderColor: 'transparent', color: '#fff', boxShadow: '0 8px 20px -10px rgba(0,0,0,0.6)' }
-          : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }
-      }
+      className={`py-3 text-[13px] rounded-xl font-semibold tnum transition-colors ${
+        active ? 'bg-white text-black' : 'text-white/75 hover:bg-white/[0.12]'
+      }`}
+      style={active ? undefined : { background: 'rgba(255,255,255,0.05)', border: `1px solid ${HAIRLINE}` }}
       {...props}
     >
       {children}
@@ -73,10 +75,6 @@ export default function Redemption() {
       console.error('Failed to fetch wallet:', error);
       setBalanceFailed(true);
     }
-  };
-
-  const handleQuickSelect = (value) => {
-    setAmount(value.toString());
   };
 
   const handleAllAmount = () => {
@@ -183,36 +181,40 @@ export default function Redemption() {
   };
 
   return (
-    <div style={{ background: '#08080b' }} className="min-h-full text-white">
-      <div className="wrap py-10 md:py-14 max-w-[620px] mx-auto">
-        <div className="flex items-center gap-3 text-[12px] text-white/40 mb-6">
-          <Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-          <span>/</span>
+    <div style={{ background: '#000' }} className="min-h-full text-white">
+      <div className="wrap py-8 md:py-12 max-w-[620px] mx-auto">
+        <div className="flex items-center gap-2.5 text-[12px] mb-6" style={{ color: MUTED }}>
           <Link to="/wallet" className="hover:text-white transition-colors">Wallet</Link>
           <span>/</span>
-          <span className="text-white/70">Withdraw</span>
+          <span className="text-white/75">Withdraw</span>
         </div>
 
-        <div className="text-[11px] uppercase tracking-[0.22em] text-white/40 mb-2">Withdraw Funds</div>
-        <div className="text-[15px] text-white/60 mb-8">
-          Available balance &middot;{' '}
-          {balance !== null ? (
-            <span className="text-white/85 tnum"><CurrencyDisplay amount={balance} /></span>
-          ) : balanceFailed ? (
-            <span className="text-white/85">—</span>
-          ) : (
-            <Skeleton dark className="inline-block align-middle h-4 w-20" />
-          )}
-        </div>
+        <h1 className="text-[22px] md:text-[26px] font-semibold leading-tight mb-1">Withdraw Funds</h1>
+        <p className="text-[13px] mb-7" style={{ color: MUTED }}>
+          Requests are reviewed before funds are released. Transfers cannot be reversed.
+        </p>
+
+        {/* Balance */}
+        <section className="rounded-[20px] px-5 py-5 sm:px-7 sm:py-6 mb-5" style={HERO_CARD}>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-white/50 mb-2">
+            Available balance &middot; {user?.username}
+          </div>
+          <div className="font-bold text-[32px] sm:text-[38px] leading-none tnum">
+            {balance !== null ? (
+              <CurrencyDisplay amount={balance} />
+            ) : balanceFailed ? (
+              '-'
+            ) : (
+              <Skeleton dark className="h-[32px] sm:h-[38px] w-44" />
+            )}
+          </div>
+        </section>
 
         <form onSubmit={handleSubmit}>
           {/* Amount */}
-          <div
-            className="rounded-[24px] px-6 py-7 mb-6"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
+          <section className="rounded-[20px] px-5 py-6 sm:px-7 sm:py-7 mb-5" style={CARD}>
             <div className="flex items-end justify-between gap-4 mb-3">
-              <label className={`${labelClass} mb-0`}>Amount</label>
+              <label className={`${LABEL} mb-0`}>Amount</label>
               <button
                 type="button"
                 onClick={handleAllAmount}
@@ -222,29 +224,32 @@ export default function Redemption() {
                 Withdraw all
               </button>
             </div>
-            <input
-              type="number"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full bg-transparent text-[36px] font-bold tnum text-white placeholder-white/20 focus:outline-none mb-6"
-              placeholder="0.00"
-              required
-            />
+            <div className="flex items-baseline gap-2 mb-6">
+              <span className="text-[30px] font-bold text-white/35">$</span>
+              <input
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full bg-transparent text-[34px] font-bold tnum text-white placeholder-white/20 focus:outline-none"
+                placeholder="0.00"
+                required
+              />
+            </div>
 
             <div className="grid grid-cols-3 gap-2.5">
               {quickAmounts.map((val) => (
-                <PillButton key={val} active={String(val) === String(amount)} onClick={() => handleQuickSelect(val)}>
-                  {val}
+                <PillButton key={val} active={String(val) === String(amount)} onClick={() => setAmount(val.toString())}>
+                  ${val.toLocaleString('en-US')}
                 </PillButton>
               ))}
             </div>
-          </div>
+          </section>
 
           {/* Payout method */}
-          <div className="mb-6">
-            <div className={labelClass}>Withdraw Via</div>
-            <div className="grid grid-cols-3 gap-3">
+          <section className="rounded-[20px] px-5 py-6 sm:px-7 sm:py-7 mb-5" style={CARD}>
+            <div className={LABEL}>Withdraw via</div>
+            <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
               {PAYOUT_METHODS.map((m) => {
                 const active = m.id === method;
                 return (
@@ -252,35 +257,32 @@ export default function Redemption() {
                     key={m.id}
                     type="button"
                     onClick={() => setMethod(m.id)}
-                    className="flex flex-col items-center justify-center gap-2.5 py-5 px-2 rounded-2xl text-center transition-all"
+                    className="flex flex-col items-center justify-center gap-2.5 py-4 px-2 rounded-2xl text-center transition-colors"
                     style={{
-                      background: active ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${active ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                      background: active ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${active ? 'rgba(255,255,255,0.40)' : HAIRLINE}`,
                     }}
                   >
                     <PayoutMethodIcon icon={m.id} size={38} active={active} />
-                    <span className="text-[11px] leading-snug text-white/70">{m.label}</span>
+                    <span className={`text-[11px] leading-snug ${active ? 'text-white' : 'text-white/60'}`}>{m.label}</span>
                   </button>
                 );
               })}
             </div>
-          </div>
+          </section>
 
           {/* Method-specific details */}
-          <div
-            className="rounded-[24px] px-6 py-7 mb-6 space-y-5"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">{methodLabel} Details</div>
+          <section className="rounded-[20px] px-5 py-6 sm:px-7 sm:py-7 mb-5 space-y-5" style={CARD}>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">{methodLabel} details</div>
 
             {method === 'paypal' && (
               <div>
-                <label className={labelClass}>PayPal Email</label>
+                <label className={LABEL}>PayPal Email</label>
                 <input
                   type="email"
                   value={details.paypal.email}
                   onChange={(e) => updateDetail('email', e.target.value)}
-                  className={fieldClass}
+                  className={FIELD}
                   placeholder="you@example.com"
                   required
                 />
@@ -290,36 +292,36 @@ export default function Redemption() {
             {method === 'card' && (
               <>
                 <div>
-                  <label className={labelClass}>Cardholder Name</label>
+                  <label className={LABEL}>Cardholder Name</label>
                   <input
                     type="text"
                     value={details.card.name}
                     onChange={(e) => updateDetail('name', e.target.value)}
-                    className={fieldClass}
+                    className={FIELD}
                     placeholder="Full name on card"
                     required
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Card Number</label>
+                  <label className={LABEL}>Card Number</label>
                   <input
                     type="text"
                     inputMode="numeric"
                     value={details.card.number}
                     onChange={(e) => updateDetail('number', e.target.value)}
-                    className={fieldClass}
+                    className={FIELD}
                     placeholder="0000 0000 0000 0000"
                     maxLength={19}
                     required
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Expiry (MM/YY)</label>
+                  <label className={LABEL}>Expiry (MM/YY)</label>
                   <input
                     type="text"
                     value={details.card.expiry}
                     onChange={(e) => updateDetail('expiry', e.target.value)}
-                    className={fieldClass}
+                    className={FIELD}
                     placeholder="MM/YY"
                     maxLength={5}
                     required
@@ -331,54 +333,54 @@ export default function Redemption() {
             {method === 'ach' && (
               <>
                 <div>
-                  <label className={labelClass}>Account Holder Name</label>
+                  <label className={LABEL}>Account Holder Name</label>
                   <input
                     type="text"
                     value={details.ach.holder}
                     onChange={(e) => updateDetail('holder', e.target.value)}
-                    className={fieldClass}
+                    className={FIELD}
                     placeholder="Full name on account"
                     required
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Bank Name</label>
+                  <label className={LABEL}>Bank Name</label>
                   <input
                     type="text"
                     value={details.ach.bankName}
                     onChange={(e) => updateDetail('bankName', e.target.value)}
-                    className={fieldClass}
+                    className={FIELD}
                     placeholder="e.g. Chase, Bank of America"
                     required
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Routing Number</label>
+                  <label className={LABEL}>Routing Number</label>
                   <input
                     type="text"
                     inputMode="numeric"
                     value={details.ach.routing}
                     onChange={(e) => updateDetail('routing', e.target.value)}
-                    className={fieldClass}
-                    placeholder="9-digit routing number"
+                    className={FIELD}
+                    placeholder="9 digit routing number"
                     maxLength={9}
                     required
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Account Number</label>
+                  <label className={LABEL}>Account Number</label>
                   <input
                     type="text"
                     inputMode="numeric"
                     value={details.ach.account}
                     onChange={(e) => updateDetail('account', e.target.value)}
-                    className={fieldClass}
+                    className={FIELD}
                     placeholder="Account number"
                     required
                   />
                 </div>
                 <div>
-                  <div className={labelClass}>Account Type</div>
+                  <div className={LABEL}>Account Type</div>
                   <div className="grid grid-cols-2 gap-3">
                     {ACCOUNT_TYPES.map((t) => (
                       <PillButton key={t} active={details.ach.accountType === t} onClick={() => updateDetail('accountType', t)}>
@@ -393,7 +395,7 @@ export default function Redemption() {
             {method === 'crypto' && (
               <>
                 <div>
-                  <div className={labelClass}>Network</div>
+                  <div className={LABEL}>Network</div>
                   <div className="grid grid-cols-2 gap-3">
                     {CRYPTO_NETWORKS.map((n) => (
                       <PillButton key={n} active={details.crypto.network === n} onClick={() => updateDetail('network', n)}>
@@ -403,12 +405,12 @@ export default function Redemption() {
                   </div>
                 </div>
                 <div>
-                  <label className={labelClass}>Wallet Address</label>
+                  <label className={LABEL}>Wallet Address</label>
                   <input
                     type="text"
                     value={details.crypto.address}
                     onChange={(e) => updateDetail('address', e.target.value)}
-                    className={fieldClass}
+                    className={FIELD}
                     placeholder="Enter your wallet address"
                     required
                   />
@@ -418,12 +420,12 @@ export default function Redemption() {
 
             {method === 'chime' && (
               <div>
-                <label className={labelClass}>Chime $Cashtag or Phone Number</label>
+                <label className={LABEL}>Chime $Cashtag or Phone Number</label>
                 <input
                   type="text"
                   value={details.chime.handle}
                   onChange={(e) => updateDetail('handle', e.target.value)}
-                  className={fieldClass}
+                  className={FIELD}
                   placeholder="$YourCashtag or phone number"
                   required
                 />
@@ -432,34 +434,34 @@ export default function Redemption() {
 
             {method === 'zelle' && (
               <div>
-                <label className={labelClass}>Zelle / e-Transfer Email or Phone</label>
+                <label className={LABEL}>Zelle / e-Transfer Email or Phone</label>
                 <input
                   type="text"
                   value={details.zelle.contact}
                   onChange={(e) => updateDetail('contact', e.target.value)}
-                  className={fieldClass}
+                  className={FIELD}
                   placeholder="Email or phone number"
                   required
                 />
               </div>
             )}
-          </div>
 
-          <div className="mb-6">
-            <label className={labelClass}>Withdrawal Password</label>
-            <input
-              type="password"
-              value={walletPassword}
-              onChange={(e) => setWalletPassword(e.target.value)}
-              className={fieldClass}
-              placeholder="Enter withdrawal password"
-              required
-            />
-          </div>
+            <div>
+              <label className={LABEL}>Withdrawal Password</label>
+              <input
+                type="password"
+                value={walletPassword}
+                onChange={(e) => setWalletPassword(e.target.value)}
+                className={FIELD}
+                placeholder="Enter withdrawal password"
+                required
+              />
+            </div>
+          </section>
 
           {message.text && (
             <div
-              className="mb-6 px-4 py-3.5 rounded-xl text-[14px]"
+              className="mb-5 px-4 py-3.5 rounded-xl text-[14px]"
               style={
                 message.type === 'success'
                   ? { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.25)', color: '#e5e5e5' }
@@ -473,16 +475,17 @@ export default function Redemption() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 rounded-xl text-[15px] font-semibold text-white transition-opacity disabled:opacity-40"
-            style={{ background: ACCENT, boxShadow: '0 14px 34px -14px rgba(0,0,0,0.6)' }}
+            className="w-full h-12 rounded-full bg-white text-black text-[15px] font-semibold transition-all hover:bg-white/90 active:scale-[0.99] disabled:opacity-40"
           >
             {loading ? 'Processing…' : 'Submit Withdrawal Request'}
           </button>
 
-          <p className="text-[12px] mt-6 text-white/40">
-            Withdrawal requests are reviewed before funds are released. Confirm your
-            payout details carefully. Transfers cannot be reversed.
-          </p>
+          <div className="flex items-center justify-between gap-4 mt-6 text-[12px]" style={{ color: MUTED }}>
+            <span>Confirm your payout details carefully.</span>
+            <Link to="/redemption-history" className="hover:text-white transition-colors whitespace-nowrap">
+              View withdrawals
+            </Link>
+          </div>
         </form>
       </div>
     </div>

@@ -4,8 +4,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
 import { QuickAccessIcon, Skeleton, VerifiedBadge, CurrencyDisplay } from '../../components/ui';
 
+// Darker than --rule so card edges and row dividers stay visible on white.
+const EDGE = '#c9c9c9';
+const DIVIDER = '#dadada';
+
 const CARD = {
-  borderColor: 'var(--rule)',
+  borderColor: EDGE,
   boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
 };
 
@@ -102,7 +106,6 @@ export default function Profile() {
     { label: 'Email', value: profile?.email || '—' },
     { label: 'Membership', value: profile?.membership?.name || 'Silver' },
     { label: 'Commission per lot', value: `${Number(profile?.membership?.commission_rate ?? 0)}%` },
-    { label: 'Withdrawal range', value: `$${Number(profile?.min_withdrawal ?? 50).toFixed(0)} to $${Number(profile?.max_withdrawal ?? 500).toFixed(0)}` },
     { label: 'Member since', value: memberSince },
   ];
 
@@ -176,7 +179,7 @@ export default function Profile() {
                 <div
                   key={d.label}
                   className="flex items-baseline justify-between gap-6 py-3.5"
-                  style={i > 0 ? { borderTop: '1px solid var(--rule)' } : undefined}
+                  style={i > 0 ? { borderTop: `1px solid ${DIVIDER}` } : undefined}
                 >
                   <dt className="text-[13px] flex-shrink-0" style={{ color: 'var(--ink-45)' }}>{d.label}</dt>
                   <dd className="text-[14px] md:text-[15px] text-right break-words min-w-0">
@@ -187,7 +190,7 @@ export default function Profile() {
             </dl>
 
             {/* Credibility */}
-            <div className="mt-8 pt-6" style={{ borderTop: '1px solid var(--rule)' }}>
+            <div className="mt-8 pt-6" style={{ borderTop: `1px solid ${DIVIDER}` }}>
               <div className="flex justify-between items-baseline mb-3">
                 <span className="text-[13px]" style={{ color: 'var(--ink-45)' }}>Credibility</span>
                 <span className="text-[15px] tnum font-medium">
@@ -226,7 +229,7 @@ export default function Profile() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 py-5" style={{ borderTop: '1px solid var(--rule)', borderBottom: '1px solid var(--rule)' }}>
+            <div className="grid grid-cols-3 gap-4 py-5" style={{ borderTop: `1px solid ${DIVIDER}`, borderBottom: `1px solid ${DIVIDER}` }}>
               <div>
                 <div className="text-[10px] uppercase tracking-[0.14em] mb-1.5" style={{ color: 'var(--ink-45)' }}>Bonus</div>
                 <div className="text-[18px] tnum">15%</div>
@@ -286,7 +289,7 @@ export default function Profile() {
           onClick={() => setShowModal(false)}
         >
           <div className="bg-white max-w-md w-full rounded-[16px] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center px-8 py-5 border-b" style={{ borderColor: 'var(--rule)' }}>
+            <div className="flex justify-between items-center px-8 py-5 border-b" style={{ borderColor: DIVIDER }}>
               <span className="eyebrow">Invitation Code</span>
               <button
                 onClick={() => setShowModal(false)}

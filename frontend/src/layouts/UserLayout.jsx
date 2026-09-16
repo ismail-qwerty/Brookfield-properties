@@ -78,7 +78,8 @@ export default function UserLayout() {
         <Outlet />
       </main>
 
-      <footer className="bg-black text-white mt-24">
+      {/* No top margin: it rendered as a white band under the dark wallet pages */}
+      <footer className="bg-black text-white">
         <div className="wrap py-16 md:py-20">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
             <div className="md:col-span-5">

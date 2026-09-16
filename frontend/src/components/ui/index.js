@@ -11,3 +11,4 @@ export { default as BrandLogo } from './BrandLogo';
 export { default as QuickAccessIcon } from './QuickAccessIcon';
 export { default as PayoutMethodIcon } from './PayoutMethodIcon';
 export { default as VerifiedBadge } from './VerifiedBadge';
+export * from './darkSurface';

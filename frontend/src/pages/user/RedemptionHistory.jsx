@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
-import { useAuth } from '../../contexts/AuthContext';
-import { SkeletonRegion, SkeletonTableRows } from '../../components/ui';
+import { CurrencyDisplay, Skeleton, CARD, MUTED, HAIRLINE, statusStyle } from '../../components/ui';
 
 export default function RedemptionHistory() {
-  const { user } = useAuth();
   const [redemptions, setRedemptions] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,93 +22,116 @@ export default function RedemptionHistory() {
     }
   };
 
+  const totals = redemptions.reduce(
+    (acc, r) => {
+      const amt = Number(r.amount) || 0;
+      if (r.status === 'Approved') acc.paid += amt;
+      if (r.status === 'Pending') acc.pending += amt;
+      return acc;
+    },
+    { paid: 0, pending: 0 }
+  );
+
+  const formatDate = (value) =>
+    new Date(value).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+
   return (
-    <div className="bg-white">
-      {/* Header Section */}
-      <div className="page-head">
-        <div className="wrap">
-          <div className="flex items-center gap-3 text-[12px] text-white/50 mb-5">
-            <Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-            <span>/</span>
-            <span className="text-white/80">Redemption History</span>
+    <div style={{ background: '#000' }} className="min-h-full text-white">
+      <div className="wrap py-8 md:py-12 max-w-[760px] mx-auto">
+        <div className="flex items-center gap-2.5 text-[12px] mb-6" style={{ color: MUTED }}>
+          <Link to="/wallet" className="hover:text-white transition-colors">Wallet</Link>
+          <span>/</span>
+          <span className="text-white/75">Withdrawals</span>
+        </div>
+
+        <div className="flex items-end justify-between gap-4 mb-7">
+          <div>
+            <h1 className="text-[22px] md:text-[26px] font-semibold leading-tight mb-1">Withdrawals</h1>
+            <p className="text-[13px]" style={{ color: MUTED }}>
+              {loading ? 'Loading your requests' : `${redemptions.length} request${redemptions.length === 1 ? '' : 's'}`}
+            </p>
           </div>
-          <h1 className="display text-white">Redemption History</h1>
+          <Link
+            to="/redemption"
+            className="h-10 px-5 rounded-full bg-white text-black text-[13px] font-semibold flex items-center hover:bg-white/90 transition-colors whitespace-nowrap"
+          >
+            Withdraw
+          </Link>
+        </div>
+
+        {/* Totals */}
+        <div className="grid grid-cols-2 rounded-[20px] overflow-hidden mb-5" style={CARD}>
+          <div className="px-5 py-4 sm:px-7 sm:py-5">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-white/45 mb-1.5">Paid out</div>
+            <div className="text-[17px] sm:text-[19px] font-semibold tnum">
+              {loading ? <Skeleton dark className="h-5 w-20" /> : <CurrencyDisplay amount={totals.paid} />}
+            </div>
+          </div>
+          <div className="px-5 py-4 sm:px-7 sm:py-5" style={{ borderLeft: `1px solid ${HAIRLINE}` }}>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-white/45 mb-1.5">Pending</div>
+            <div className="text-[17px] sm:text-[19px] font-semibold tnum">
+              {loading ? <Skeleton dark className="h-5 w-20" /> : <CurrencyDisplay amount={totals.pending} />}
+            </div>
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="rounded-[20px] overflow-hidden" style={CARD}>
+          {loading ? (
+            <div role="status" aria-busy="true">
+              <span className="sr-only">Loading withdrawals</span>
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between gap-4 px-5 sm:px-7 py-5"
+                  style={i > 0 ? { borderTop: `1px solid ${HAIRLINE}` } : undefined}
+                >
+                  <div className="space-y-2">
+                    <Skeleton dark className="h-5 w-24" />
+                    <Skeleton dark className="h-3.5 w-40" />
+                  </div>
+                  <Skeleton dark className="h-6 w-20 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : redemptions.length === 0 ? (
+            <div className="px-6 py-16 text-center">
+              <p className="text-[15px] mb-1">No withdrawals yet</p>
+              <p className="text-[13px] mb-7" style={{ color: MUTED }}>
+                Your withdrawal requests will appear here.
+              </p>
+              <Link
+                to="/redemption"
+                className="inline-flex h-11 px-7 rounded-full bg-white text-black text-[14px] font-semibold items-center hover:bg-white/90 transition-colors"
+              >
+                Withdraw Funds
+              </Link>
+            </div>
+          ) : (
+            redemptions.map((r, i) => (
+              <div
+                key={r.id}
+                className="flex items-start justify-between gap-4 px-5 sm:px-7 py-5"
+                style={i > 0 ? { borderTop: `1px solid ${HAIRLINE}` } : undefined}
+              >
+                <div className="min-w-0">
+                  <div className="text-[17px] font-semibold tnum mb-1">
+                    <CurrencyDisplay amount={r.amount} />
+                  </div>
+                  <div className="text-[12px] truncate" style={{ color: MUTED }}>
+                    {formatDate(r.created_at)} &middot; {r.wallet_address || 'Payout details not recorded'}
+                  </div>
+                </div>
+                <span
+                  className={`flex-shrink-0 inline-block px-3 py-1 rounded-full text-[11px] font-semibold ${statusStyle(r.status)}`}
+                >
+                  {r.status}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
-
-      {/* Content Section */}
-      <div className="wrap section-tight">
-        <h2 className="text-2xl font-semibold text-gray-700 mb-6">
-          Recent Redemptions - {user?.username}
-        </h2>
-
-        {loading ? (
-          <SkeletonRegion label="Loading redemptions" className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table className="min-w-full">
-              <thead className="bg-gray-100 border-b">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">#</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Amount ($)</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Wallet Address</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <SkeletonTableRows rows={5} columns={5} rowClassName={(i) => (i % 2 === 0 ? 'bg-gray-50' : 'bg-white')} />
-              </tbody>
-            </table>
-          </SkeletonRegion>
-        ) : redemptions.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <p className="text-gray-500">No redemption records found</p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table className="min-w-full">
-              <thead className="bg-gray-100 border-b">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">#</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Amount ($)</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Wallet Address</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {redemptions.map((redemption, index) => (
-                  <tr key={redemption.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                    <td className="px-6 py-4 text-sm text-gray-900">{index + 1}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {new Date(redemption.created_at).toISOString().split('T')[0]}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {parseFloat(redemption.amount).toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                      {redemption.wallet_address}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span
-                        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                          redemption.status === 'Approved'
-                            ? 'bg-black text-white'
-                            : redemption.status === 'Pending'
-                            ? 'bg-white text-black border border-black'
-                            : 'bg-gray-100 text-gray-500 border border-gray-300'
-                        }`}
-                      >
-                        {redemption.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
     </div>
   );
 }
