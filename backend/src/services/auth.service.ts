@@ -3,8 +3,52 @@ import jwt from 'jsonwebtoken';
 import { supabaseAdmin } from '../config/database.js';
 import { ENV } from '../config/environment.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { Logger } from '../utils/logger.js';
+
+// Credited to every account created from this point on.
+export const SIGNUP_BONUS = 15;
 
 export class AuthService {
+  /**
+   * Credit the signup bonus to a freshly created account. Best-effort: the
+   * account already exists by this point, so a failure here is logged rather
+   * than thrown, which would leave the caller thinking registration failed.
+   */
+  private static async creditSignupBonus(userId: string, username: string) {
+    try {
+      const { data: wallet, error: walletError } = await supabaseAdmin
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', userId)
+        .single();
+
+      if (walletError || !wallet) {
+        Logger.error('Signup bonus: wallet not found', { userId, error: walletError });
+        return;
+      }
+
+      const { error: updateError } = await supabaseAdmin
+        .from('wallets')
+        .update({ balance: Number(wallet.balance) + SIGNUP_BONUS })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        Logger.error('Signup bonus: failed to credit wallet', { userId, error: updateError });
+        return;
+      }
+
+      await supabaseAdmin.from('debits_log').insert({
+        user_id: userId,
+        amount: SIGNUP_BONUS,
+        reason: 'Signup bonus',
+        applied_by_admin_id: null,
+      });
+
+      Logger.info('Signup bonus credited', { userId, username, amount: SIGNUP_BONUS });
+    } catch (error) {
+      Logger.error('Unexpected error crediting signup bonus', { userId, error });
+    }
+  }
   /**
    * Check whether a username is free to register, for live "already taken"
    * feedback while the user is still typing (rather than only finding out
@@ -164,6 +208,8 @@ export class AuthService {
 
       createdUser = insertedUser;
     }
+
+    await this.creditSignupBonus(String(createdUser.id), createdUser.username);
 
     const token = this.generateToken(String(createdUser.id));
 
