@@ -194,7 +194,7 @@ export default function AddMember() {
   return (
     <div className="max-w-5xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Add Member</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Add Member</h1>
         <p className="text-sm text-gray-600 mt-1">
           <Link to="/administration" className="link-quiet">Home</Link>
           <span className="mx-2">/</span>

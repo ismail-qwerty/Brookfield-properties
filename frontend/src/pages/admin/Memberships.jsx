@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TierBadge, LoadingSpinner, EmptyState, SkeletonTableRows } from '../../components/ui';
+import { TierBadge, LoadingSpinner, EmptyState, Skeleton, SkeletonTableRows } from '../../components/ui';
 import api from '../../utils/api';
 
 export default function Memberships() {
@@ -109,9 +109,9 @@ export default function Memberships() {
 
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Membership Tier Configuration</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Membership Tier Configuration</h1>
           <p className="text-gray-600 mt-1">Manage membership levels, order limits, and commission structures</p>
         </div>
         <button
@@ -127,7 +127,67 @@ export default function Memberships() {
         {!loading && memberships.length === 0 ? (
           <EmptyState message="No membership tiers configured" icon="⭐" />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phones get a card per tier instead of the wide table. */}
+          <div className="md:hidden divide-y divide-gray-200" aria-busy={loading}>
+            {loading
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="p-4 space-y-3">
+                    <Skeleton className="h-6 w-24" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                  </div>
+                ))
+              : memberships.map((membership) => (
+                  <div key={membership.id} className="p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <TierBadge tier={membership.name} size="md" />
+                      <span className="text-xs text-gray-500">
+                        ID {membership.id} · {new Date(membership.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-3">
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">Order limit</dt>
+                        <dd className="font-semibold text-gray-900">{membership.order_limit}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">Members</dt>
+                        <dd className="font-semibold text-primary-600">{membership.member_count || 0}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">Normal lot</dt>
+                        <dd className="font-semibold text-black">{Number(membership.commission_rate)}%</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">Special lot</dt>
+                        <dd className="font-semibold text-black">{Number(membership.special_commission_rate ?? 27)}%</dd>
+                      </div>
+                    </dl>
+                    <div className="flex gap-4">
+                      <button onClick={() => handleEditMembership(membership)} className="link-quiet text-[13px]">
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedMembership(membership);
+                          setShowDeleteModal(true);
+                        }}
+                        className="text-red-600 hover:text-red-800 font-medium text-sm disabled:opacity-40"
+                        disabled={membership.member_count > 0}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -200,6 +260,7 @@ export default function Memberships() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

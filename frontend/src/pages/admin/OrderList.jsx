@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { StatusBadge, CurrencyDisplay, LoadingSpinner, EmptyState, SkeletonTableRows } from '../../components/ui';
+import { StatusBadge, CurrencyDisplay, LoadingSpinner, EmptyState, Skeleton, SkeletonTableRows } from '../../components/ui';
 import api from '../../utils/api';
 
 export default function OrderList() {
@@ -153,9 +153,9 @@ export default function OrderList() {
 
   return (
     <div>
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Master Property Catalog</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Master Property Catalog</h1>
           <p className="text-gray-600 mt-1">Manage all property listings and order configurations</p>
         </div>
         <button
@@ -171,7 +171,64 @@ export default function OrderList() {
         {!loading && properties.length === 0 ? (
           <EmptyState message="No properties found" icon="🏢" />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phones get a card per property; the table is too wide to use. */}
+          <div className="md:hidden divide-y divide-gray-200" aria-busy={loading}>
+            {loading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="p-4 flex gap-3">
+                    <Skeleton className="w-20 h-20 rounded-lg flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-40" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                  </div>
+                ))
+              : sortedProperties.map((property) => (
+                  <div key={property.id} className="p-4">
+                    <div className="flex gap-3">
+                      <img
+                        src={property.image_url}
+                        alt=""
+                        className="w-20 h-20 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+                        onError={(e) => {
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80"%3E%3Crect fill="%23e5e7eb" width="80" height="80"/%3E%3C/svg%3E';
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-medium text-gray-900 break-words">{property.title}</p>
+                          <StatusBadge status={property.status} />
+                        </div>
+                        <p className="text-sm text-gray-600 line-clamp-2 mt-1">{property.description}</p>
+                        <div className="flex items-center justify-between gap-3 mt-2">
+                          <CurrencyDisplay amount={property.price} className="text-primary-600 font-semibold" />
+                          <span className="text-xs text-gray-500">
+                            ID {property.id} · {new Date(property.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 mt-3">
+                      <button onClick={() => handleEditProperty(property)} className="link-quiet text-[13px]">
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedProperty(property);
+                          setShowDeleteModal(true);
+                        }}
+                        className="text-red-600 hover:text-red-800 font-medium text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -286,6 +343,7 @@ export default function OrderList() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

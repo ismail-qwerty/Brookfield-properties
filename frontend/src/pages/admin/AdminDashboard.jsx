@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { StatusBadge, TierBadge, CurrencyDisplay, EmptyState, SkeletonTableRows, VerifiedBadge } from '../../components/ui';
+import { StatusBadge, TierBadge, CurrencyDisplay, EmptyState, Skeleton, SkeletonTableRows, VerifiedBadge } from '../../components/ui';
 import api from '../../utils/api';
 
 const PAGE_SIZE = 30;
@@ -170,12 +170,142 @@ export default function AdminDashboard() {
     });
   };
 
+  // Row actions, shared by the desktop table and the mobile cards so the
+  // two views can never drift apart.
+  const renderActions = (user) => (
+    <div className="flex items-stretch gap-2">
+    <div className="grid grid-cols-2 gap-1 flex-shrink-0" role="group" aria-label="Membership level">
+      {tiers.map((tier) => {
+        const active = user.tier_id === tier.id;
+        return (
+          <button
+            key={tier.id}
+            type="button"
+            disabled={tierSavingId === user.id}
+            onClick={() => changeTier(user, tier)}
+            title={`${tier.name}: ${Number(tier.commission_rate)}% normal, ${Number(tier.special_commission_rate ?? 27)}% special`}
+            aria-pressed={active}
+            className={`w-7 h-7 rounded border text-[11px] font-bold transition-colors disabled:opacity-50 ${
+              active
+                ? 'bg-black border-black text-white'
+                : 'bg-white border-gray-300 text-gray-600 hover:border-black hover:text-black'
+            }`}
+          >
+            {tier.name.charAt(0).toUpperCase()}
+          </button>
+        );
+      })}
+    </div>
+    <button
+      type="button"
+      disabled={verifyingId === user.id}
+      onClick={() => toggleVerified(user)}
+      title={user.is_verified ? 'Remove verified badge' : 'Mark as verified'}
+      className={`w-[68px] flex-shrink-0 flex flex-col items-center justify-center gap-1 rounded border text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+        user.is_verified
+          ? 'bg-black border-black text-white hover:bg-gray-800'
+          : 'bg-white border-gray-300 text-gray-700 hover:border-black hover:text-black'
+      }`}
+    >
+      <VerifiedBadge size={20} light={user.is_verified} />
+      {user.is_verified ? 'Verified' : 'Verify'}
+    </button>
+    <div className="flex flex-col space-y-2 min-w-[140px]">
+      {/* Row 1 */}
+      <div className="flex space-x-2">
+        <Link
+          to={`/administration/reset-orders/${user.id}`}
+          className="flex-1 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold px-3 py-1.5 rounded text-center transition-colors"
+        >
+          Setup Order
+        </Link>
+        <button
+          onClick={() => {
+            setSelectedUser(user);
+            setShowDebitModal(true);
+          }}
+          className="flex-1 bg-[#DC2626] hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors"
+        >
+          Adjust Balance
+        </button>
+      </div>
+      {/* Row 2 */}
+      <div className="flex space-x-2">
+        <button
+          onClick={async () => {
+            if (confirm(`Reset completed orders for ${user.username}? This will set their total orders to 0.`)) {
+              try {
+                await api.post(`/admin/users/${user.id}/reset-orders`);
+                alert('Orders reset successfully!');
+                await fetchUsers();
+              } catch (err) {
+                alert(err.response?.data?.error || 'Failed to reset orders');
+              }
+            }
+          }}
+          className="flex-1 bg-primary-700 hover:bg-primary-600 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors"
+        >
+          Reset Count
+        </button>
+        <div className="relative dropdown-container flex-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpenDropdown(openDropdown === user.id ? null : user.id);
+            }}
+            className="w-full bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors flex items-center justify-center"
+          >
+            More Actions
+            <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {openDropdown === user.id && (
+            <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+              <div className="py-1">
+                <Link
+                  to={`/administration/update-user/${user.id}`}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => setOpenDropdown(null)}
+                >
+                  Edit Profile
+                </Link>
+                <Link
+                  to={`/administration/wallet/${user.id}`}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => setOpenDropdown(null)}
+                >
+                  Wallet Details
+                </Link>
+                <Link
+                  to={`/administration/recharge-history/${user.id}`}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => setOpenDropdown(null)}
+                >
+                  Deposit History
+                </Link>
+                <Link
+                  to={`/administration/redemption-history/${user.id}`}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => setOpenDropdown(null)}
+                >
+                  Withdrawal History
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+    </div>
+  );
+
   return (
     <div>
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">User Management</h1>
             <p className="text-gray-600 mt-1">Manage all platform members and accounts</p>
           </div>
           <div className="flex space-x-3">
@@ -231,7 +361,84 @@ export default function AdminDashboard() {
           <EmptyState message={searchQuery ? 'No users found matching your search' : 'No users found'} icon="👥" />
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Phones get a card per user: the full table is 17 columns wide,
+                which pushes the action buttons far off a phone screen. */}
+            <div className="md:hidden divide-y divide-gray-200" aria-busy={loading}>
+              {loading
+                ? Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-5 w-12" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                      <Skeleton className="h-16 w-full rounded" />
+                    </div>
+                  ))
+                : filteredUsers.map((user) => (
+                    <div key={user.id} className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-gray-900 truncate">
+                            {user.username}
+                            {user.is_verified && <VerifiedBadge size={14} className="ml-1 -mt-0.5" />}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            ID {user.id}
+                            {user.referrer_id ? ` · Parent ${user.referrer_id}` : ''} · {user.phone}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <TierBadge tier={user.membership?.name || 'Silver'} size="sm" />
+                          <StatusBadge status={user.user_status} />
+                        </div>
+                      </div>
+
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">Balance</dt>
+                          <dd>
+                            <CurrencyDisplay
+                              amount={user.wallet?.balance || 0}
+                              className={(user.wallet?.balance || 0) < 0 ? 'text-black font-semibold' : 'text-primary-600'}
+                            />
+                          </dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">Reward</dt>
+                          <dd><CurrencyDisplay amount={user.today_earnings || 0} className="text-black" /></dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">Orders</dt>
+                          <dd className="text-gray-900">{user.total_orders || 0}</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">Available</dt>
+                          <dd className="text-gray-900">
+                            {Math.max(0, (user.membership?.order_limit || 27) - (user.total_orders || 0))}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">Credibility</dt>
+                          <dd className="text-gray-900">{user.credibility}%</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">Wallet</dt>
+                          <dd><StatusBadge status={user.wallet_status} /></dd>
+                        </div>
+                      </dl>
+
+                      {renderActions(user)}
+                    </div>
+                  ))}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -294,131 +501,7 @@ export default function AdminDashboard() {
                       <td className="px-4 py-3 text-sm text-gray-600">{formatDate(user.created_at)}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{formatDate(user.last_login_at)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex items-stretch gap-2">
-                        <div className="grid grid-cols-2 gap-1 flex-shrink-0" role="group" aria-label="Membership level">
-                          {tiers.map((tier) => {
-                            const active = user.tier_id === tier.id;
-                            return (
-                              <button
-                                key={tier.id}
-                                type="button"
-                                disabled={tierSavingId === user.id}
-                                onClick={() => changeTier(user, tier)}
-                                title={`${tier.name}: ${Number(tier.commission_rate)}% normal, ${Number(tier.special_commission_rate ?? 27)}% special`}
-                                aria-pressed={active}
-                                className={`w-7 h-7 rounded border text-[11px] font-bold transition-colors disabled:opacity-50 ${
-                                  active
-                                    ? 'bg-black border-black text-white'
-                                    : 'bg-white border-gray-300 text-gray-600 hover:border-black hover:text-black'
-                                }`}
-                              >
-                                {tier.name.charAt(0).toUpperCase()}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <button
-                          type="button"
-                          disabled={verifyingId === user.id}
-                          onClick={() => toggleVerified(user)}
-                          title={user.is_verified ? 'Remove verified badge' : 'Mark as verified'}
-                          className={`w-[68px] flex-shrink-0 flex flex-col items-center justify-center gap-1 rounded border text-[11px] font-semibold transition-colors disabled:opacity-50 ${
-                            user.is_verified
-                              ? 'bg-black border-black text-white hover:bg-gray-800'
-                              : 'bg-white border-gray-300 text-gray-700 hover:border-black hover:text-black'
-                          }`}
-                        >
-                          <VerifiedBadge size={20} light={user.is_verified} />
-                          {user.is_verified ? 'Verified' : 'Verify'}
-                        </button>
-                        <div className="flex flex-col space-y-2 min-w-[140px]">
-                          {/* Row 1 */}
-                          <div className="flex space-x-2">
-                            <Link
-                              to={`/administration/reset-orders/${user.id}`}
-                              className="flex-1 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold px-3 py-1.5 rounded text-center transition-colors"
-                            >
-                              Setup Order
-                            </Link>
-                            <button
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setShowDebitModal(true);
-                              }}
-                              className="flex-1 bg-[#DC2626] hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors"
-                            >
-                              Adjust Balance
-                            </button>
-                          </div>
-                          {/* Row 2 */}
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={async () => {
-                                if (confirm(`Reset completed orders for ${user.username}? This will set their total orders to 0.`)) {
-                                  try {
-                                    await api.post(`/admin/users/${user.id}/reset-orders`);
-                                    alert('Orders reset successfully!');
-                                    await fetchUsers();
-                                  } catch (err) {
-                                    alert(err.response?.data?.error || 'Failed to reset orders');
-                                  }
-                                }
-                              }}
-                              className="flex-1 bg-primary-700 hover:bg-primary-600 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors"
-                            >
-                              Reset Count
-                            </button>
-                            <div className="relative dropdown-container flex-1">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenDropdown(openDropdown === user.id ? null : user.id);
-                                }}
-                                className="w-full bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors flex items-center justify-center"
-                              >
-                                More Actions
-                                <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </button>
-                              {openDropdown === user.id && (
-                                <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                                  <div className="py-1">
-                                    <Link
-                                      to={`/administration/update-user/${user.id}`}
-                                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                      onClick={() => setOpenDropdown(null)}
-                                    >
-                                      Edit Profile
-                                    </Link>
-                                    <Link
-                                      to={`/administration/wallet/${user.id}`}
-                                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                      onClick={() => setOpenDropdown(null)}
-                                    >
-                                      Wallet Details
-                                    </Link>
-                                    <Link
-                                      to={`/administration/recharge-history/${user.id}`}
-                                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                      onClick={() => setOpenDropdown(null)}
-                                    >
-                                      Deposit History
-                                    </Link>
-                                    <Link
-                                      to={`/administration/redemption-history/${user.id}`}
-                                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                      onClick={() => setOpenDropdown(null)}
-                                    >
-                                      Withdrawal History
-                                    </Link>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        </div>
+                        {renderActions(user)}
                       </td>
                     </tr>
                   ))}
@@ -427,7 +510,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Pagination */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <div className="bg-gray-50 px-4 md:px-6 py-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm text-gray-600">
                 Page {currentPage} of {totalPages} &middot; {totalUsers} {debouncedSearch ? 'matching' : 'total'} users
               </div>
