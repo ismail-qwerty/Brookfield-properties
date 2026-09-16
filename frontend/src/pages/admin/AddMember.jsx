@@ -110,16 +110,6 @@ export default function AddMember() {
       return;
     }
 
-    if (parseFloat(formData.min_withdrawal) <= 0 || parseFloat(formData.max_withdrawal) <= 0) {
-      setError('Minimum and Maximum Withdraw must be positive');
-      return;
-    }
-
-    if (parseFloat(formData.min_withdrawal) >= parseFloat(formData.max_withdrawal)) {
-      setError('Minimum Withdraw must be less than Maximum Withdraw');
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -361,36 +351,6 @@ export default function AddMember() {
                 step="0.01"
                 className="input-field"
                 placeholder="Enter Opening Balance"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Minimum Withdraw
-              </label>
-              <input
-                type="number"
-                name="min_withdrawal"
-                value={formData.min_withdrawal}
-                onChange={handleChange}
-                step="0.01"
-                className="input-field"
-                placeholder="Set Minimum Withdraw Amount"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Maximum Withdraw
-              </label>
-              <input
-                type="number"
-                name="max_withdrawal"
-                value={formData.max_withdrawal}
-                onChange={handleChange}
-                step="0.01"
-                className="input-field"
-                placeholder="Set Maximum Withdraw Amount"
               />
             </div>
 
