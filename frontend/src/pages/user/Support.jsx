@@ -137,7 +137,7 @@ function UserChatInterface() {
                     <span className="font-serif text-[16px]">B</span>
                   </div>
                   <div>
-                    <p className="font-serif text-[16px] leading-tight text-white">Blackstone Support</p>
+                    <p className="font-serif text-[16px] leading-tight text-white">Chat Support</p>
                     <p className="text-[12px] text-white/55 flex items-center gap-1.5 mt-0.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
                       {isActive ? 'Agent responding' : 'Online'}

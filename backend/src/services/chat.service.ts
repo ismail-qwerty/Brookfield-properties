@@ -27,6 +27,22 @@ const assertConversationAccess = async (conversationId: string, user: ChatUser) 
   }
 };
 
+// Members only ever see replies from "Chat Support", never the agent's own
+// username, including in the raw API response.
+const SUPPORT_DISPLAY_NAME = 'Chat Support';
+
+const maskStaffSenders = <T extends { sender?: { id: string; username: string; user_type: string } | null }>(
+  messages: T[] | null,
+  viewer: ChatUser
+): T[] => {
+  if (!messages || isSupportStaff(viewer)) return messages || [];
+  return messages.map((m) =>
+    m.sender && String(m.sender.id) !== String(viewer.id)
+      ? { ...m, sender: { ...m.sender, username: SUPPORT_DISPLAY_NAME } }
+      : m
+  );
+};
+
 export class ChatService {
   // User creates or gets existing conversation
   static async getUserConversation(userId: string) {
@@ -93,7 +109,7 @@ export class ChatService {
       throw new AppError(500, 'Failed to fetch messages');
     }
 
-    return messages;
+    return maskStaffSenders(messages, user);
   }
 
   // Send a message

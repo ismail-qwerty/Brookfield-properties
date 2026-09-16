@@ -274,10 +274,10 @@ export default function ChatSupportDashboard() {
         >
           <div className="h-[60px] px-4 flex items-center justify-between flex-shrink-0" style={{ background: C.bar }}>
             <div className="flex items-center gap-3 min-w-0">
-              <Avatar name={user?.username || 'Agent'} size={40} />
+              <Avatar name="Chat Support" size={40} />
               <div className="min-w-0">
                 <div className="text-[15px] font-medium truncate" style={{ color: C.text }}>
-                  {user?.username}
+                  Chat Support
                 </div>
                 <div className="text-[12.5px] truncate" style={{ color: C.subtext }}>
                   Support console
@@ -552,7 +552,7 @@ export default function ChatSupportDashboard() {
                 </svg>
               </div>
               <h2 className="font-sans text-[26px] font-light mb-3" style={{ color: '#41525d' }}>
-                Blackstone Support
+                Chat Support
               </h2>
               <p className="text-[14px] max-w-[440px] leading-relaxed" style={{ color: C.subtext }}>
                 Select a conversation from the list to read and reply. New chats are marked in green and are
