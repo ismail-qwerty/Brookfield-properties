@@ -151,7 +151,10 @@ export class ChatService {
     return data;
   }
 
-  // Support agent: Get all conversations
+  // Support agent: Get all conversations. `status` accepts a real status or
+  // 'Active', which merges the waiting and in-progress queues into one list.
+  // Each row carries its last message and the agent's unread count so the
+  // console can show previews and badges without a request per conversation.
   static async getAllConversations(status?: string) {
     let query = supabaseAdmin
       .from('chat_conversations')
@@ -163,7 +166,9 @@ export class ChatService {
       `)
       .order('updated_at', { ascending: false });
 
-    if (status) {
+    if (status === 'Active') {
+      query = query.in('status', ['Open', 'InProgress']);
+    } else if (status) {
       query = query.eq('status', status);
     }
 
@@ -173,7 +178,107 @@ export class ChatService {
       throw new AppError(500, 'Failed to fetch conversations');
     }
 
+    const conversations = data || [];
+    if (conversations.length === 0) return conversations;
+
+    const ids = conversations.map((c) => c.id);
+    const { data: recent } = await supabaseAdmin
+      .from('chat_messages')
+      .select('conversation_id, message, message_type, created_at, sender_id, is_read')
+      .in('conversation_id', ids)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    const lastByConv = new Map<string, any>();
+    const unreadByConv = new Map<string, number>();
+    const customerIds = new Map(conversations.map((c) => [c.id, String(c.user_id)]));
+
+    for (const m of recent || []) {
+      const convId = String(m.conversation_id);
+      if (!lastByConv.has(convId)) lastByConv.set(convId, m);
+      // Unread for the agent means the customer wrote it and nobody has opened it.
+      if (!m.is_read && String(m.sender_id) === customerIds.get(convId)) {
+        unreadByConv.set(convId, (unreadByConv.get(convId) || 0) + 1);
+      }
+    }
+
+    return conversations.map((c) => {
+      const last = lastByConv.get(String(c.id));
+      return {
+        ...c,
+        unread_count: unreadByConv.get(String(c.id)) || 0,
+        last_message: last
+          ? {
+              text: last.message_type === 'image' ? 'Photo' : last.message,
+              created_at: last.created_at,
+              from_customer: String(last.sender_id) === String(c.user_id),
+            }
+          : null,
+      };
+    });
+  }
+
+  // Canned responses: shared across the support team, inserted in the composer
+  // by typing "/" followed by the title.
+  static async listCannedResponses() {
+    const { data, error } = await supabaseAdmin
+      .from('canned_responses')
+      .select('*')
+      .order('title', { ascending: true });
+
+    if (error) {
+      throw new AppError(500, 'Failed to fetch saved messages');
+    }
+
+    return data || [];
+  }
+
+  static async createCannedResponse(title: string, body: string, createdBy: string) {
+    const clean = { title: title.trim(), body: body.trim() };
+    if (!clean.title || !clean.body) {
+      throw new AppError(400, 'Title and message are both required');
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('canned_responses')
+      .insert({ ...clean, created_by: createdBy })
+      .select('*')
+      .single();
+
+    if (error) {
+      // 23505 is the unique index on lower(title).
+      if ((error as any).code === '23505') {
+        throw new AppError(400, 'A saved message with that title already exists');
+      }
+      throw new AppError(500, 'Failed to save message');
+    }
+
     return data;
+  }
+
+  static async updateCannedResponse(id: string, title: string, body: string) {
+    const { data, error } = await supabaseAdmin
+      .from('canned_responses')
+      .update({ title: title.trim(), body: body.trim(), updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      throw new AppError(404, 'Saved message not found');
+    }
+
+    return data;
+  }
+
+  static async deleteCannedResponse(id: string) {
+    const { error } = await supabaseAdmin.from('canned_responses').delete().eq('id', id);
+
+    if (error) {
+      throw new AppError(500, 'Failed to delete saved message');
+    }
+
+    return { id };
   }
 
   // Support agent: Assign conversation to self

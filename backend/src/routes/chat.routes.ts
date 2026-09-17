@@ -20,4 +20,10 @@ router.get('/support/conversations', requireSupportStaff, ChatController.getAllC
 router.put('/support/conversations/:conversationId/assign', requireSupportStaff, ChatController.assignConversation);
 router.put('/support/conversations/:conversationId/close', requireSupportStaff, ChatController.closeConversation);
 
+// Canned responses, shared by the support team
+router.get('/support/canned', requireSupportStaff, ChatController.listCannedResponses);
+router.post('/support/canned', requireSupportStaff, ChatController.createCannedResponse);
+router.put('/support/canned/:id', requireSupportStaff, ChatController.updateCannedResponse);
+router.delete('/support/canned/:id', requireSupportStaff, ChatController.deleteCannedResponse);
+
 export default router;

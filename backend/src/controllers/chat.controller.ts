@@ -80,6 +80,44 @@ export class ChatController {
     }
   }
 
+  static async listCannedResponses(req: Request, res: Response, next: NextFunction) {
+    try {
+      const items = await ChatService.listCannedResponses();
+      ResponseUtil.success(res, items, 'Saved messages retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async createCannedResponse(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { title, body } = req.body;
+      const item = await ChatService.createCannedResponse(title, body, (req as AuthRequest).user.id);
+      ResponseUtil.success(res, item, 'Saved message created', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateCannedResponse(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { title, body } = req.body;
+      const item = await ChatService.updateCannedResponse(req.params.id, title, body);
+      ResponseUtil.success(res, item, 'Saved message updated');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteCannedResponse(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await ChatService.deleteCannedResponse(req.params.id);
+      ResponseUtil.success(res, result, 'Saved message deleted');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async closeConversation(req: Request, res: Response, next: NextFunction) {
     try {
       const conversationId = req.params.conversationId;

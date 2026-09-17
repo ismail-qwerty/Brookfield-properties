@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../utils/api';
+import { getCachedMessages, setCachedMessages } from '../utils/chatCache';
 
 const POLL_MS = 2000;
 
@@ -10,11 +11,20 @@ const POLL_MS = 2000;
 //   responses never pile up, and polling pauses while the tab is hidden.
 // - send() shows the message immediately and swaps in the saved copy when the
 //   server confirms, instead of waiting on a second round trip to refetch.
-export default function useChatMessages(conversationId, { userId, markRead = false } = {}) {
+export default function useChatMessages(conversationId, { userId, markRead = false, cache = false } = {}) {
   // Keyed by conversation so switching threads never shows the previous one's
   // messages, without having to reset state inside an effect.
   const [thread, setThread] = useState({ id: null, messages: [], loaded: false });
   const latestRef = useRef(null);
+
+  // Show the cached copy of a thread the moment it is opened, then let the
+  // poll below fill in anything newer.
+  useEffect(() => {
+    if (!cache || !conversationId) return;
+    const cached = getCachedMessages(conversationId);
+    if (!cached?.length) return;
+    setThread((prev) => (prev.id === conversationId && prev.messages.length ? prev : { id: conversationId, messages: cached, loaded: true }));
+  }, [conversationId, cache]);
 
   const appendTo = (id, incoming) =>
     setThread((prev) => {
@@ -123,5 +133,12 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
   );
 
   const current = thread.id === conversationId ? thread : { messages: [], loaded: false };
+
+  useEffect(() => {
+    if (cache && current.loaded && current.messages.length) {
+      setCachedMessages(conversationId, current.messages);
+    }
+  }, [cache, conversationId, current.loaded, current.messages]);
+
   return { messages: current.messages, loaded: current.loaded, send };
 }
