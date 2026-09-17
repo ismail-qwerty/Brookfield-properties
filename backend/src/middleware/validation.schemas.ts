@@ -311,6 +311,25 @@ export const updateUserSchema = z.object({
 
   is_verified: z.boolean().optional(),
 
+  // Admins may reset either password. Same rules as registration; omitted or
+  // blank leaves the current one untouched.
+  password: z
+    .string()
+    .min(6, 'Password must be at least 6 characters')
+    .max(128, 'Password must not exceed 128 characters')
+    .regex(/[A-Za-z]/, 'Password must contain at least one letter')
+    .regex(/[0-9]/, 'Password must contain at least one number')
+    .optional()
+    .or(z.literal('')),
+
+  wallet_password: z
+    .string()
+    .min(6, 'Withdrawal password must be at least 6 characters')
+    .max(128, 'Withdrawal password must not exceed 128 characters')
+    .regex(/[0-9]/, 'Withdrawal password must contain at least one number')
+    .optional()
+    .or(z.literal('')),
+
   user_status: z
     .enum(['Active', 'Deactivate'], {
       errorMap: () => ({ message: 'Invalid user status' }),

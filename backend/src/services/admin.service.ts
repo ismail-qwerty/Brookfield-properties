@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { Logger } from '../utils/logger.js';
@@ -315,7 +316,15 @@ export class AdminService {
    */
   static async updateUser(userId: string, updates: any, adminId: string) {
     try {
-      Logger.info('Admin updating user', { userId, adminId, updates });
+      // Never log the payload as-is: it can carry new passwords in clear text.
+      const { password, wallet_password, ...loggableUpdates } = updates as any;
+      Logger.info('Admin updating user', {
+        userId,
+        adminId,
+        updates: loggableUpdates,
+        password_reset: !!password,
+        wallet_password_reset: !!wallet_password,
+      });
 
       // Fetch current user data
       const { data: currentUser, error: fetchError } = await supabaseAdmin
@@ -351,6 +360,15 @@ export class AdminService {
 
       if (typeof updates.is_verified === 'boolean') {
         updateData.is_verified = updates.is_verified;
+      }
+
+      // Password resets: hashed here, never stored or logged in clear text.
+      if (typeof updates.password === 'string' && updates.password.trim() !== '') {
+        updateData.password_hash = await bcrypt.hash(updates.password, 10);
+      }
+
+      if (typeof updates.wallet_password === 'string' && updates.wallet_password.trim() !== '') {
+        updateData.wallet_password_hash = await bcrypt.hash(updates.wallet_password, 10);
       }
 
       // Independent user_status control (global login access)

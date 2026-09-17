@@ -53,8 +53,6 @@ export class AdminController {
       return ResponseUtil.unauthorized(res, 'Authentication required');
     }
 
-    console.log('Controller received body:', req.body);
-    console.log('Balance adjustment in body:', req.body.balance_adjustment);
 
     const result = await AdminService.updateUser(id, req.body, admin.id);
 

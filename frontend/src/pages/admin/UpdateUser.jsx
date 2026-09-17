@@ -122,6 +122,8 @@ export default function UpdateUser() {
         balance_adjustment: formData.balance_adjustment !== '' ? parseFloat(formData.balance_adjustment) : undefined,
         referrer_id: formData.parent_id ? parseInt(formData.parent_id) : null,
         is_verified: formData.is_verified,
+        password: formData.password.trim(),
+        wallet_password: formData.wallet_password.trim(),
       };
 
       // Remove undefined values
@@ -136,15 +138,26 @@ export default function UpdateUser() {
       const response = await api.admin.updateUser(id, updateData);
       console.log('Update response:', response.data);
       const resolvedCount = response.data?.data?.resolved_order_ids?.length || 0;
+      const changed = [
+        updateData.password ? 'login password' : null,
+        updateData.wallet_password ? 'withdrawal password' : null,
+      ].filter(Boolean);
+
       setSuccess(
-        resolvedCount > 0
-          ? `User updated successfully. ${resolvedCount} pending order(s) were completed now that the balance is no longer negative.`
-          : 'User updated successfully'
+        [
+          'User updated successfully',
+          changed.length ? `New ${changed.join(' and ')} set.` : '',
+          resolvedCount > 0
+            ? `${resolvedCount} pending order(s) were completed now that the balance is no longer negative.`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('. ')
       );
       // Refresh user data to show new balance
       await fetchUserData();
-      // Clear balance adjustment field
-      setFormData(prev => ({ ...prev, balance_adjustment: '' }));
+      // Clear the one-shot fields so a later save doesn't reapply them
+      setFormData(prev => ({ ...prev, balance_adjustment: '', password: '', wallet_password: '' }));
     } catch (err) {
       console.error('Update error:', err);
       console.error('Error response:', err.response?.data);
