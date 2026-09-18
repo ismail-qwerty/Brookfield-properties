@@ -6,9 +6,31 @@ import { Skeleton, SkeletonRegion } from './ui';
 import ChatMessage from './ChatMessage';
 import useChatMessages from '../hooks/useChatMessages';
 
+// A signed-out visitor (a forgotten password, say) still needs support, so
+// the widget works without an account: the browser keeps a random token that
+// identifies their one conversation.
+const guestTokenKey = 'guestChatToken';
+
+const readGuestToken = () => {
+  try {
+    let token = localStorage.getItem(guestTokenKey);
+    if (!/^[a-f0-9]{32}$/i.test(token || '')) {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      token = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem(guestTokenKey, token);
+    }
+    return token;
+  } catch {
+    return null;
+  }
+};
+
 export default function FloatingChatButton() {
   const location = useLocation();
   const { user } = useAuth();
+  const isGuest = !user;
+  const [guestToken] = useState(() => (typeof window === 'undefined' ? null : readGuestToken()));
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [conversation, setConversation] = useState(null);
@@ -17,6 +39,7 @@ export default function FloatingChatButton() {
   const { messages, loaded, send } = useChatMessages(open ? conversation?.id : null, {
     userId: user?.id,
     markRead: true,
+    guestToken: isGuest ? guestToken : null,
   });
   const [newMessage, setNewMessage] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
@@ -40,13 +63,13 @@ export default function FloatingChatButton() {
   // moment after the page loads, once per browser session, so the chat
   // entry point doesn't rely on the user noticing a plain icon.
   useEffect(() => {
-    if (!user || isAdminOrSupport || isHiddenPage) return;
+    if (isAdminOrSupport || isHiddenPage) return;
     let dismissed = false;
     try { dismissed = !!sessionStorage.getItem('chat_greeting_dismissed'); } catch { /* storage unavailable */ }
     if (dismissed) return;
     const timer = setTimeout(() => setShowGreeting(true), 1500);
     return () => clearTimeout(timer);
-  }, [user, isAdminOrSupport, isHiddenPage]);
+  }, [isAdminOrSupport, isHiddenPage]);
 
   // Listen for external open trigger (from Contact nav buttons)
   useEffect(() => {
@@ -101,7 +124,9 @@ export default function FloatingChatButton() {
   const initChat = async () => {
     setConversationFailed(false);
     try {
-      const { data } = await api.get('/chat/conversation');
+      const { data } = isGuest
+        ? await api.post('/chat/guest/conversation', { token: guestToken })
+        : await api.get('/chat/conversation');
       setConversation(data.data);
     } catch (e) {
       console.error('Chat init failed', e);
@@ -143,7 +168,7 @@ export default function FloatingChatButton() {
     }
   };
 
-  if (!user || isAdminOrSupport || isHiddenPage) return null;
+  if (isAdminOrSupport || isHiddenPage || (isGuest && !guestToken)) return null;
 
   const isActive = conversation?.status === 'InProgress';
 
@@ -245,7 +270,9 @@ export default function FloatingChatButton() {
               <p className="text-[13px] text-[var(--ink-45)]">How can we help you today?</p>
             </div>
           ) : (
-            messages.map((msg) => <ChatMessage key={msg.id} msg={msg} mine={msg.sender_id === user?.id} compact />)
+            messages.map((msg) => (
+              <ChatMessage key={msg.id} msg={msg} mine={isGuest ? !!msg.from_guest : msg.sender_id === user?.id} compact />
+            ))
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -259,12 +286,17 @@ export default function FloatingChatButton() {
             </div>
           )}
           <div className="flex items-center gap-1.5">
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] transition-colors" disabled={!conversation}>
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-              </svg>
-            </button>
+            {/* Guest chats are text only, so the attachment control is theirs alone. */}
+            {!isGuest && (
+              <>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-[var(--ink-45)] hover:text-black hover:bg-[var(--paper-alt)] transition-colors" disabled={!conversation}>
+                  <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                  </svg>
+                </button>
+              </>
+            )}
             <input
               type="text"
               value={newMessage}

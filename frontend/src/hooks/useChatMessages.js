@@ -11,7 +11,7 @@ const POLL_MS = 2000;
 //   responses never pile up, and polling pauses while the tab is hidden.
 // - send() shows the message immediately and swaps in the saved copy when the
 //   server confirms, instead of waiting on a second round trip to refetch.
-export default function useChatMessages(conversationId, { userId, markRead = false, cache = false } = {}) {
+export default function useChatMessages(conversationId, { userId, markRead = false, cache = false, guestToken = null } = {}) {
   // Keyed by conversation so switching threads never shows the previous one's
   // messages, without having to reset state inside an effect.
   const [thread, setThread] = useState({ id: null, messages: [], loaded: false });
@@ -50,16 +50,18 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
         inFlight = true;
         try {
           const after = latestRef.current;
-          const { data } = await api.get(`/chat/conversations/${conversationId}/messages`, {
-            params: after ? { after } : undefined,
-          });
+          const { data } = guestToken
+            ? await api.get('/chat/guest/messages', { params: { token: guestToken, ...(after ? { after } : {}) } })
+            : await api.get(`/chat/conversations/${conversationId}/messages`, {
+                params: after ? { after } : undefined,
+              });
           if (cancelled) return;
           const incoming = data.data || [];
           // Only server rows move the cursor: advancing it past a message we
           // just sent could skip a reply that was saved a moment earlier.
           if (incoming.length) latestRef.current = incoming[incoming.length - 1].created_at;
           appendTo(conversationId, incoming);
-          if (markRead && incoming.some((m) => m.sender_id !== userId)) {
+          if (markRead && !guestToken && incoming.some((m) => m.sender_id !== userId)) {
             api.put(`/chat/conversations/${conversationId}/read`).catch(() => {});
           }
         } catch {
@@ -84,7 +86,7 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [conversationId, userId, markRead]);
+  }, [conversationId, userId, markRead, guestToken]);
 
   const send = useCallback(
     async ({ text = '', imageUrl = null }) => {
@@ -94,6 +96,7 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
       const optimistic = {
         id: tempId,
         sender_id: userId,
+        from_guest: !!guestToken,
         message: body,
         message_type: imageUrl ? 'image' : 'text',
         image_url: imageUrl,
@@ -106,10 +109,12 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
       );
 
       try {
-        const { data } = await api.post(`/chat/conversations/${conversationId}/messages`, {
-          message: body,
-          image_url: imageUrl,
-        });
+        const { data } = guestToken
+          ? await api.post('/chat/guest/messages', { token: guestToken, message: body })
+          : await api.post(`/chat/conversations/${conversationId}/messages`, {
+              message: body,
+              image_url: imageUrl,
+            });
         const saved = data.data;
         setThread((prev) => {
           if (prev.id !== conversationId) return prev;
@@ -129,7 +134,7 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
         throw error;
       }
     },
-    [conversationId, userId]
+    [conversationId, userId, guestToken]
   );
 
   const current = thread.id === conversationId ? thread : { messages: [], loaded: false };

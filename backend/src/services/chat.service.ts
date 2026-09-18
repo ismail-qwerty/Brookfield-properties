@@ -43,7 +43,103 @@ const maskStaffSenders = <T extends { sender?: { id: string; username: string; u
   );
 };
 
+// A signed-out visitor is identified only by a random token their browser
+// keeps. It is the secret that grants access to that one conversation, so it
+// has to look like one we issued before anything is read or written.
+const GUEST_TOKEN_RE = /^[a-f0-9]{32}$/i;
+
+const assertGuestToken = (token: string) => {
+  if (!token || !GUEST_TOKEN_RE.test(token)) {
+    throw new AppError(400, 'Invalid guest session');
+  }
+};
+
 export class ChatService {
+  // Guest chat: create or resume the conversation belonging to this token.
+  static async getGuestConversation(token: string) {
+    assertGuestToken(token);
+
+    const { data: existing } = await supabaseAdmin
+      .from('chat_conversations')
+      .select('*')
+      .eq('guest_token', token)
+      .in('status', ['Open', 'InProgress'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) return existing;
+
+    // Short readable label so the agent sees "Guest 4F2A" rather than a token.
+    const label = `Guest ${token.slice(0, 4).toUpperCase()}`;
+    const { data: created, error } = await supabaseAdmin
+      .from('chat_conversations')
+      .insert({ guest_token: token, guest_label: label, status: 'Open' })
+      .select('*')
+      .single();
+
+    if (error) {
+      throw new AppError(500, 'Failed to start chat');
+    }
+
+    return created;
+  }
+
+  private static async guestConversationOrThrow(token: string) {
+    assertGuestToken(token);
+    const { data: conv } = await supabaseAdmin
+      .from('chat_conversations')
+      .select('id, guest_token')
+      .eq('guest_token', token)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!conv) throw new AppError(404, 'Chat not found');
+    return conv;
+  }
+
+  static async getGuestMessages(token: string, after?: string) {
+    const conv = await this.guestConversationOrThrow(token);
+
+    let query = supabaseAdmin
+      .from('chat_messages')
+      .select('*')
+      .eq('conversation_id', conv.id)
+      .order('created_at', { ascending: true });
+
+    if (after) query = query.gt('created_at', after);
+
+    const { data, error } = await query;
+    if (error) throw new AppError(500, 'Failed to fetch messages');
+
+    // Guests never see who replied, only that support did.
+    return (data || []).map((m) => ({ ...m, sender: m.from_guest ? null : { username: SUPPORT_DISPLAY_NAME } }));
+  }
+
+  static async sendGuestMessage(token: string, message: string) {
+    const conv = await this.guestConversationOrThrow(token);
+    const text = (message || '').trim();
+
+    if (!text) throw new AppError(400, 'Message is required');
+    if (text.length > 2000) throw new AppError(400, 'Message is too long');
+
+    const [{ data, error }] = await Promise.all([
+      supabaseAdmin
+        .from('chat_messages')
+        .insert({ conversation_id: conv.id, sender_id: null, from_guest: true, message_type: 'text', message: text })
+        .select('*')
+        .single(),
+      supabaseAdmin
+        .from('chat_conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conv.id),
+    ]);
+
+    if (error) throw new AppError(500, 'Failed to send message');
+
+    return data;
+  }
   // User creates or gets existing conversation
   static async getUserConversation(userId: string) {
     // Check for existing open conversation
@@ -184,7 +280,7 @@ export class ChatService {
     const ids = conversations.map((c) => c.id);
     const { data: recent } = await supabaseAdmin
       .from('chat_messages')
-      .select('conversation_id, message, message_type, created_at, sender_id, is_read')
+      .select('conversation_id, message, message_type, created_at, sender_id, is_read, from_guest')
       .in('conversation_id', ids)
       .order('created_at', { ascending: false })
       .limit(1000);
@@ -193,11 +289,14 @@ export class ChatService {
     const unreadByConv = new Map<string, number>();
     const customerIds = new Map(conversations.map((c) => [c.id, String(c.user_id)]));
 
+    const fromCustomer = (m: any, convId: string) =>
+      m.from_guest === true || String(m.sender_id) === customerIds.get(convId);
+
     for (const m of recent || []) {
       const convId = String(m.conversation_id);
       if (!lastByConv.has(convId)) lastByConv.set(convId, m);
       // Unread for the agent means the customer wrote it and nobody has opened it.
-      if (!m.is_read && String(m.sender_id) === customerIds.get(convId)) {
+      if (!m.is_read && fromCustomer(m, convId)) {
         unreadByConv.set(convId, (unreadByConv.get(convId) || 0) + 1);
       }
     }
@@ -211,7 +310,7 @@ export class ChatService {
           ? {
               text: last.message_type === 'image' ? 'Photo' : last.message,
               created_at: last.created_at,
-              from_customer: String(last.sender_id) === String(c.user_id),
+              from_customer: fromCustomer(last, String(c.id)),
             }
           : null,
       };
@@ -323,11 +422,12 @@ export class ChatService {
   static async markAsRead(conversationId: string, user: ChatUser) {
     await assertConversationAccess(conversationId, user);
 
+    // `neq` alone would skip guest messages, whose sender_id is null.
     const { error } = await supabaseAdmin
       .from('chat_messages')
       .update({ is_read: true })
       .eq('conversation_id', conversationId)
-      .neq('sender_id', user.id);
+      .or(`sender_id.neq.${user.id},sender_id.is.null`);
 
     if (error) {
       throw new AppError(500, 'Failed to mark messages as read');

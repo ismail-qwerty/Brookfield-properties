@@ -4,7 +4,14 @@ import { authenticate, requireSupportStaff } from '../middleware/auth.middleware
 
 const router = Router();
 
-// All routes require authentication
+// Guest chat is deliberately public: someone who cannot sign in (a forgotten
+// password, say) still needs a way to reach support. Access to a thread is
+// limited to whoever holds its random token.
+router.post('/guest/conversation', ChatController.getGuestConversation);
+router.get('/guest/messages', ChatController.getGuestMessages);
+router.post('/guest/messages', ChatController.sendGuestMessage);
+
+// Everything below requires authentication
 router.use(authenticate);
 
 // User routes

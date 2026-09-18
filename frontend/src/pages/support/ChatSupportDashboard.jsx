@@ -431,7 +431,10 @@ export default function ChatSupportDashboard() {
   const query = search.trim().toLowerCase();
   const visibleConversations = query
     ? conversations.filter(
-        (c) => c.user?.username?.toLowerCase().includes(query) || c.user?.email?.toLowerCase().includes(query)
+        (c) =>
+          c.user?.username?.toLowerCase().includes(query) ||
+          c.user?.email?.toLowerCase().includes(query) ||
+          c.guest_label?.toLowerCase().includes(query)
       )
     : conversations;
 
@@ -538,11 +541,11 @@ export default function ChatSupportDashboard() {
             ) : (
               visibleConversations.map((conv) => {
                 const active = selectedConv?.id === conv.id;
-                const name = conv.user?.username || 'Customer';
+                const name = conv.user?.username || conv.guest_label || 'Guest';
                 const unread = active ? 0 : conv.unread_count || 0;
                 const preview = conv.last_message
                   ? `${conv.last_message.from_customer ? '' : 'You: '}${conv.last_message.text || ''}`
-                  : conv.user?.email;
+                  : conv.user?.email || 'Not signed in';
                 return (
                   <button
                     key={conv.id}
@@ -614,13 +617,13 @@ export default function ChatSupportDashboard() {
                       <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
-                  <Avatar name={selectedConv.user?.username || 'Customer'} size={40} />
+                  <Avatar name={selectedConv.user?.username || selectedConv.guest_label || 'Guest'} size={40} />
                   <div className="min-w-0">
                     <div className="text-[16px] truncate" style={{ color: C.text }}>
-                      {selectedConv.user?.username}
+                      {selectedConv.user?.username || selectedConv.guest_label || 'Guest'}
                     </div>
                     <div className="text-[13px] truncate" style={{ color: C.subtext }}>
-                      {selectedConv.user?.email}
+                      {selectedConv.user?.email || 'Not signed in'}
                     </div>
                   </div>
                 </div>

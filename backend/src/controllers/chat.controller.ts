@@ -4,6 +4,38 @@ import { ResponseUtil } from '../utils/response.js';
 import { AuthRequest } from '../types/index.js';
 
 export class ChatController {
+  // Guest chat: no account, identified by the token their browser holds.
+  static async getGuestConversation(req: Request, res: Response, next: NextFunction) {
+    try {
+      const token = String(req.body?.token || req.query.token || '');
+      const conversation = await ChatService.getGuestConversation(token);
+      ResponseUtil.success(res, conversation, 'Conversation retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getGuestMessages(req: Request, res: Response, next: NextFunction) {
+    try {
+      const token = String(req.query.token || '');
+      const after = typeof req.query.after === 'string' ? req.query.after : undefined;
+      const messages = await ChatService.getGuestMessages(token, after);
+      ResponseUtil.success(res, messages, 'Messages retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async sendGuestMessage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { token, message } = req.body || {};
+      const saved = await ChatService.sendGuestMessage(String(token || ''), message);
+      ResponseUtil.success(res, saved, 'Message sent', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // User: Get or create conversation
   static async getUserConversation(req: Request, res: Response, next: NextFunction) {
     try {
