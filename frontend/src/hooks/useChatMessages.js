@@ -29,10 +29,20 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
   const appendTo = (id, incoming) =>
     setThread((prev) => {
       const base = prev.id === id ? prev : { id, messages: [], loaded: false };
-      const known = new Set(base.messages.map((m) => m.id));
-      const fresh = incoming.filter((m) => !known.has(m.id));
-      if (!fresh.length && base.loaded && base === prev) return prev;
-      return { id, messages: fresh.length ? [...base.messages, ...fresh] : base.messages, loaded: true };
+      const byId = new Map(incoming.map((m) => [m.id, m]));
+      // A message already on screen can come back changed (a delete), so
+      // replace those in place and append only the genuinely new ones.
+      let changed = false;
+      const updated = base.messages.map((m) => {
+        const fresh = byId.get(m.id);
+        if (!fresh) return m;
+        byId.delete(m.id);
+        changed = changed || fresh.deleted_at !== m.deleted_at;
+        return fresh.deleted_at !== m.deleted_at ? fresh : m;
+      });
+      const added = [...byId.values()];
+      if (!added.length && !changed && base.loaded && base === prev) return prev;
+      return { id, messages: added.length ? [...updated, ...added] : updated, loaded: true };
     });
 
   useEffect(() => {
@@ -137,6 +147,32 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
     [conversationId, userId, guestToken]
   );
 
+  const remove = useCallback(
+    async (messageId) => {
+      if (!conversationId || guestToken) return;
+      const previous = thread.messages;
+      // Show it as removed at once; put it back if the server refuses.
+      setThread((prev) =>
+        prev.id === conversationId
+          ? {
+              ...prev,
+              messages: prev.messages.map((m) =>
+                m.id === messageId ? { ...m, deleted_at: new Date().toISOString(), message: '', image_url: null } : m
+              ),
+            }
+          : prev
+      );
+
+      try {
+        await api.delete(`/chat/conversations/${conversationId}/messages/${messageId}`);
+      } catch (error) {
+        setThread((prev) => (prev.id === conversationId ? { ...prev, messages: previous } : prev));
+        throw error;
+      }
+    },
+    [conversationId, guestToken, thread.messages]
+  );
+
   const current = thread.id === conversationId ? thread : { messages: [], loaded: false };
 
   useEffect(() => {
@@ -145,5 +181,5 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
     }
   }, [cache, conversationId, current.loaded, current.messages]);
 
-  return { messages: current.messages, loaded: current.loaded, send };
+  return { messages: current.messages, loaded: current.loaded, send, remove };
 }

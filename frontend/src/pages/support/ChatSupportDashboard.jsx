@@ -116,12 +116,89 @@ function Ticks({ pending }) {
   );
 }
 
-function Bubble({ msg, mine }) {
+function Bubble({ msg, mine, onDelete }) {
   const hasImage = msg.message_type === 'image' && msg.image_url;
   const caption = hasImage ? (msg.message !== 'Sent an image' ? msg.message : null) : msg.message;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const holdTimer = useRef(null);
+
+  // Deleted messages stay in place as a tombstone so the thread still reads in
+  // order, matching what both sides see.
+  if (msg.deleted_at) {
+    return (
+      <div className={`flex ${mine ? 'justify-end' : 'justify-start'} px-[6%] md:px-[8%]`}>
+        <div
+          className="max-w-[85%] md:max-w-[65%] rounded-[8px] pl-2.5 pr-3 py-1.5 flex items-center gap-1.5"
+          style={{ background: mine ? C.outgoing : C.incoming, boxShadow: '0 1px 0.5px rgba(11,20,26,0.13)', opacity: 0.75 }}
+        >
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke={C.subtext} strokeWidth="1.8" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M6 18L18 6" strokeLinecap="round" />
+          </svg>
+          <span className="text-[13.5px] italic" style={{ color: C.subtext }}>This message was deleted</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Hover on a desktop, press and hold on a touch screen.
+  const startHold = () => {
+    holdTimer.current = setTimeout(() => setMenuOpen(true), 450);
+  };
+  const cancelHold = () => clearTimeout(holdTimer.current);
 
   return (
-    <div className={`flex ${mine ? 'justify-end' : 'justify-start'} px-[6%] md:px-[8%]`}>
+    <div
+      className={`group relative flex ${mine ? 'justify-end' : 'justify-start'} px-[6%] md:px-[8%]`}
+      onTouchStart={startHold}
+      onTouchEnd={cancelHold}
+      onTouchMove={cancelHold}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setMenuOpen(true);
+      }}
+    >
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="fixed inset-0 z-10 cursor-default"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div
+            className={`absolute z-20 top-1 ${mine ? 'right-[8%]' : 'left-[8%]'} rounded-[8px] overflow-hidden`}
+            style={{ background: C.panel, boxShadow: '0 4px 14px rgba(11,20,26,0.2)' }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                onDelete?.(msg);
+              }}
+              className="block w-full text-left px-4 py-2.5 text-[14px] whitespace-nowrap hover:bg-black/5"
+              style={{ color: '#c0392b' }}
+            >
+              Delete message
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Three dots, shown on hover next to the bubble */}
+      <button
+        type="button"
+        aria-label="Message options"
+        onClick={() => setMenuOpen((v) => !v)}
+        className={`self-center mx-1 w-7 h-7 rounded-full items-center justify-center hidden group-hover:flex hover:bg-black/5 ${mine ? 'order-first' : 'order-last'}`}
+      >
+        <svg viewBox="0 0 24 24" className="w-4 h-4" fill={C.icon} aria-hidden="true">
+          <circle cx="12" cy="5" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="12" cy="19" r="1.8" />
+        </svg>
+      </button>
+
       <div
         className={`relative max-w-[85%] md:max-w-[65%] rounded-[8px] ${mine ? 'rounded-tr-[2px]' : 'rounded-tl-[2px]'} ${
           hasImage ? 'p-1' : 'pl-2.5 pr-2 pt-1.5 pb-1.5'
@@ -168,6 +245,7 @@ export default function ChatSupportDashboard() {
     messages,
     loaded: messagesLoaded,
     send,
+    remove,
   } = useChatMessages(selectedConv?.id, { userId: user?.id, markRead: true, cache: true });
   const [newMessage, setNewMessage] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
@@ -327,6 +405,15 @@ export default function ChatSupportDashboard() {
       console.error('Failed to send:', error);
       setNewMessage(text);
       alert('Failed to send message. Please try again.');
+    }
+  };
+
+  const handleDeleteMessage = async (msg) => {
+    if (!window.confirm('Delete this message for everyone?')) return;
+    try {
+      await remove(msg.id);
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to delete message');
     }
   };
 
@@ -674,7 +761,7 @@ export default function ChatSupportDashboard() {
                             </span>
                           </div>
                         )}
-                        <Bubble msg={msg} mine={msg.sender_id === user?.id} />
+                        <Bubble msg={msg} mine={msg.sender_id === user?.id} onDelete={handleDeleteMessage} />
                       </div>
                     );
                   })

@@ -23,7 +23,7 @@ function UserChatInterface() {
   const { user } = useAuth();
   const [conversation, setConversation] = useState(null);
   const [conversationFailed, setConversationFailed] = useState(false);
-  const { messages, loaded, send } = useChatMessages(conversation?.id, { userId: user?.id, markRead: true });
+  const { messages, loaded, send, remove } = useChatMessages(conversation?.id, { userId: user?.id, markRead: true });
   const [newMessage, setNewMessage] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -79,6 +79,15 @@ function UserChatInterface() {
     setImagePreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteMessage = async (msg) => {
+    if (!window.confirm('Delete this message?')) return;
+    try {
+      await remove(msg.id);
+    } catch {
+      alert('Failed to delete. Try again.');
     }
   };
 
@@ -173,7 +182,9 @@ function UserChatInterface() {
                     <p className="text-[14px] text-[var(--ink-45)]">Start a conversation with our support team</p>
                   </div>
                 ) : (
-                  messages.map((msg) => <ChatMessage key={msg.id} msg={msg} mine={msg.sender_id === user?.id} />)
+                  messages.map((msg) => (
+                    <ChatMessage key={msg.id} msg={msg} mine={msg.sender_id === user?.id} onDelete={handleDeleteMessage} />
+                  ))
                 )}
                 <div ref={messagesEndRef} />
               </div>

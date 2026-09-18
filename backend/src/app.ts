@@ -1,6 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ENV } from './config/environment.js';
@@ -16,6 +17,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app: Application = express();
+
+// Behind the VPS reverse proxy, so the client IP comes from X-Forwarded-For.
+// Without this every request would look like it came from the proxy and the
+// rate limits below would throttle all visitors as one.
+app.set('trust proxy', 1);
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -60,6 +66,39 @@ app.get('/health', (req: Request, res: Response) => {
     environment: ENV.NODE_ENV,
   });
 });
+
+// Rate limits. Sign-in and registration are the brute-force targets, and the
+// guest chat is open to anyone at all, so both are capped per IP. Everything
+// else gets a looser ceiling that normal use never reaches.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { success: false, error: 'Too many attempts. Please try again in a few minutes.' },
+});
+
+const guestChatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many messages. Please slow down.' },
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests. Please slow down.' },
+});
+
+app.use(`/api/${ENV.API_VERSION}`, apiLimiter);
+app.use(`/api/${ENV.API_VERSION}/auth/login`, authLimiter);
+app.use(`/api/${ENV.API_VERSION}/auth/register`, authLimiter);
+app.use(`/api/${ENV.API_VERSION}/chat/guest`, guestChatLimiter);
 
 app.use(`/api/${ENV.API_VERSION}/auth`, authRoutes);
 app.use(`/api/${ENV.API_VERSION}/users`, userRoutes);

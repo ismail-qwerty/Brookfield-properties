@@ -190,11 +190,22 @@ export class ChatService {
       messagesQuery = messagesQuery.gt('created_at', after);
     }
 
+    // Polls ask only for newer messages, so a message deleted further up the
+    // thread would never reach the other side. Fetch those separately.
+    const deletedQuery = after
+      ? supabaseAdmin
+          .from('chat_messages')
+          .select('*')
+          .eq('conversation_id', conversationId)
+          .gt('deleted_at', after)
+      : null;
+
     // Reading is side-effect free, so the access check and the fetch can run
     // together; nothing is returned unless access passes.
-    const [{ data: conv }, { data: messages, error }] = await Promise.all([
+    const [{ data: conv }, { data: messages, error }, deletedResult] = await Promise.all([
       fetchConversationAccess(conversationId),
       messagesQuery,
+      deletedQuery,
     ]);
 
     if (!canAccessConversation(conv, user)) {
@@ -205,7 +216,10 @@ export class ChatService {
       throw new AppError(500, 'Failed to fetch messages');
     }
 
-    return maskStaffSenders(messages, user);
+    const seen = new Set((messages || []).map((m) => m.id));
+    const merged = [...(messages || []), ...((deletedResult?.data || []).filter((m) => !seen.has(m.id)))];
+
+    return maskStaffSenders(merged, user);
   }
 
   // Send a message
@@ -280,7 +294,7 @@ export class ChatService {
     const ids = conversations.map((c) => c.id);
     const { data: recent } = await supabaseAdmin
       .from('chat_messages')
-      .select('conversation_id, message, message_type, created_at, sender_id, is_read, from_guest')
+      .select('conversation_id, message, message_type, created_at, sender_id, is_read, from_guest, deleted_at')
       .in('conversation_id', ids)
       .order('created_at', { ascending: false })
       .limit(1000);
@@ -308,7 +322,7 @@ export class ChatService {
         unread_count: unreadByConv.get(String(c.id)) || 0,
         last_message: last
           ? {
-              text: last.message_type === 'image' ? 'Photo' : last.message,
+              text: last.deleted_at ? 'Message deleted' : last.message_type === 'image' ? 'Photo' : last.message,
               created_at: last.created_at,
               from_customer: fromCustomer(last, String(c.id)),
             }
@@ -416,6 +430,51 @@ export class ChatService {
     }
 
     return data;
+  }
+
+  // Delete a message: kept as a tombstone rather than removed, so the thread
+  // still reads in order and the audit trail survives. Anyone may delete their
+  // own; support staff may also delete messages in threads they handle.
+  static async deleteMessage(conversationId: string, messageId: string, user: ChatUser) {
+    await assertConversationAccess(conversationId, user);
+
+    const { data: message } = await supabaseAdmin
+      .from('chat_messages')
+      .select('id, sender_id, conversation_id, deleted_at')
+      .eq('id', messageId)
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+
+    if (!message) {
+      throw new AppError(404, 'Message not found');
+    }
+
+    const isOwn = message.sender_id !== null && String(message.sender_id) === String(user.id);
+    if (!isOwn && !isSupportStaff(user)) {
+      throw new AppError(403, 'You can only delete your own messages');
+    }
+
+    if (message.deleted_at) {
+      return { id: messageId, already_deleted: true };
+    }
+
+    const { error } = await supabaseAdmin
+      .from('chat_messages')
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: user.id,
+        // The original text and any attachment go with it.
+        message: '',
+        image_url: null,
+        message_type: 'text',
+      })
+      .eq('id', messageId);
+
+    if (error) {
+      throw new AppError(500, 'Failed to delete message');
+    }
+
+    return { id: messageId, deleted: true };
   }
 
   // Mark messages as read

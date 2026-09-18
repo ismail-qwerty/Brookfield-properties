@@ -71,6 +71,16 @@ export class ChatController {
     }
   }
 
+  static async deleteMessage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { conversationId, messageId } = req.params;
+      const result = await ChatService.deleteMessage(conversationId, messageId, (req as AuthRequest).user);
+      ResponseUtil.success(res, result, 'Message deleted');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async markAsRead(req: Request, res: Response, next: NextFunction) {
     try {
       const conversationId = req.params.conversationId;

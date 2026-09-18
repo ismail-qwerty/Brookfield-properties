@@ -36,7 +36,7 @@ export default function FloatingChatButton() {
   const [conversation, setConversation] = useState(null);
   const [conversationFailed, setConversationFailed] = useState(false);
   // Only polls while the panel is open.
-  const { messages, loaded, send } = useChatMessages(open ? conversation?.id : null, {
+  const { messages, loaded, send, remove } = useChatMessages(open ? conversation?.id : null, {
     userId: user?.id,
     markRead: true,
     guestToken: isGuest ? guestToken : null,
@@ -148,6 +148,15 @@ export default function FloatingChatButton() {
     setSelectedImage(null);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDeleteMessage = async (msg) => {
+    if (!window.confirm('Delete this message?')) return;
+    try {
+      await remove(msg.id);
+    } catch {
+      alert('Failed to delete. Try again.');
+    }
   };
 
   const handleSend = async (e) => {
@@ -271,7 +280,13 @@ export default function FloatingChatButton() {
             </div>
           ) : (
             messages.map((msg) => (
-              <ChatMessage key={msg.id} msg={msg} mine={isGuest ? !!msg.from_guest : msg.sender_id === user?.id} compact />
+              <ChatMessage
+                key={msg.id}
+                msg={msg}
+                mine={isGuest ? !!msg.from_guest : msg.sender_id === user?.id}
+                compact
+                onDelete={isGuest ? undefined : handleDeleteMessage}
+              />
             ))
           )}
           <div ref={messagesEndRef} />
