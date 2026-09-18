@@ -110,11 +110,22 @@ export class ChatService {
 
     if (after) query = query.gt('created_at', after);
 
-    const { data, error } = await query;
+    // As for signed-in members: a message deleted earlier in the thread has to
+    // reach the guest too, and it sits behind their cursor.
+    const [{ data, error }, deleted] = await Promise.all([
+      query,
+      after
+        ? supabaseAdmin.from('chat_messages').select('*').eq('conversation_id', conv.id).gt('deleted_at', after)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
     if (error) throw new AppError(500, 'Failed to fetch messages');
 
+    const seen = new Set((data || []).map((m) => m.id));
+    const merged = [...(data || []), ...((deleted?.data || []).filter((m: any) => !seen.has(m.id)))];
+
     // Guests never see who replied, only that support did.
-    return (data || []).map((m) => ({ ...m, sender: m.from_guest ? null : { username: SUPPORT_DISPLAY_NAME } }));
+    return merged.map((m) => ({ ...m, sender: m.from_guest ? null : { username: SUPPORT_DISPLAY_NAME } }));
   }
 
   static async sendGuestMessage(token: string, message: string) {

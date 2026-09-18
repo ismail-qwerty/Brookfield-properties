@@ -68,8 +68,13 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
           if (cancelled) return;
           const incoming = data.data || [];
           // Only server rows move the cursor: advancing it past a message we
-          // just sent could skip a reply that was saved a moment earlier.
-          if (incoming.length) latestRef.current = incoming[incoming.length - 1].created_at;
+          // just sent could skip a reply that was saved a moment earlier. Take
+          // the newest timestamp rather than the last row, since a deletion
+          // from earlier in the thread arrives at the end of the batch and
+          // would otherwise drag the cursor backwards.
+          for (const m of incoming) {
+            if (!latestRef.current || m.created_at > latestRef.current) latestRef.current = m.created_at;
+          }
           appendTo(conversationId, incoming);
           if (markRead && !guestToken && incoming.some((m) => m.sender_id !== userId)) {
             api.put(`/chat/conversations/${conversationId}/read`).catch(() => {});
