@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: georgia-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NODE_ENV
+        value: production
+      # Add the rest (SUPABASE_*, JWT_SECRET, DATABASE_URL, ALLOWED_ORIGINS, ...)
+      # in the Render dashboard -> Environment. Do not commit secrets.
