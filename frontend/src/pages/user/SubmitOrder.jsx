@@ -56,12 +56,13 @@ export default function SubmitOrder() {
     setError('');
 
     try {
-      await api.user.submitOrder(orderData.order.id, { review: selectedReview });
+      const { data } = await api.user.submitOrder(orderData.order.id, { review: selectedReview });
+      const promotedTo = data?.data?.promoted_to;
 
       navigate('/data-optimization', {
         state: {
           success: true,
-          message: `Order completed! You earned $${orderData.order.commission.toFixed(2)}`,
+          message: `Order completed! You earned $${orderData.order.commission.toFixed(2)}${promotedTo ? `. Your account is now ${promotedTo}.` : ''}`,
         },
       });
     } catch (err) {

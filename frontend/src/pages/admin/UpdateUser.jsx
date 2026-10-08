@@ -138,6 +138,7 @@ export default function UpdateUser() {
       const response = await api.admin.updateUser(id, updateData);
       console.log('Update response:', response.data);
       const resolvedCount = response.data?.data?.resolved_order_ids?.length || 0;
+      const lotAmountReturned = response.data?.data?.special_lot_amount_returned || 0;
       const changed = [
         updateData.password ? 'login password' : null,
         updateData.wallet_password ? 'withdrawal password' : null,
@@ -149,6 +150,9 @@ export default function UpdateUser() {
           changed.length ? `New ${changed.join(' and ')} set.` : '',
           resolvedCount > 0
             ? `${resolvedCount} pending order(s) were completed now that the balance is no longer negative.`
+            : '',
+          lotAmountReturned > 0
+            ? `$${lotAmountReturned.toFixed(2)} special lot amount returned to the balance.`
             : '',
         ]
           .filter(Boolean)

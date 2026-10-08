@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { Logger } from '../utils/logger.js';
-import { NEGATIVE_BALANCE_FLAG } from './order.service.js';
+import { NEGATIVE_BALANCE_FLAG, settleRecoveredOrders } from './order.service.js';
 
 export class AdminService {
   /**
@@ -12,7 +12,8 @@ export class AdminService {
    * OrderService.submitOrder. If this brings the balance back to zero or
    * above, any orders that already paid out but were left Pending pending
    * recovery (see NEGATIVE_BALANCE_FLAG in OrderService.submitOrder) are
-   * auto-completed.
+   * auto-completed, and the full amount of any special lot among them is
+   * returned to the balance (see settleRecoveredOrders).
    *
    * Both applyDebit and updateUser's balance_adjustment go through this
    * single implementation so the two admin tools that can change a
@@ -45,27 +46,19 @@ export class AdminService {
       throw new AppError(500, 'Failed to update wallet balance');
     }
 
-    let resolvedOrderIds: string[] = [];
-    if (newBalance >= 0) {
-      const { data: resolved, error: resolveError } = await supabaseAdmin
-        .from('orders')
-        .update({ status: 'Completed', property_name: null, created_at: new Date().toISOString() })
-        .eq('user_id', userId)
-        .eq('status', 'Pending')
-        .eq('property_name', NEGATIVE_BALANCE_FLAG)
-        .select('id');
+    // The returned lot amount is a refund of what the special lot held, not
+    // earnings, so it lands in the balance only and not in total_earned.
+    const { resolvedOrderIds, lotAmountReturned } =
+      newBalance >= 0 ? await settleRecoveredOrders(userId) : { resolvedOrderIds: [], lotAmountReturned: 0 };
 
-      if (resolveError) {
-        Logger.error('Failed to auto-complete negative-balance orders', { userId, error: resolveError });
-      } else {
-        resolvedOrderIds = (resolved || []).map((o) => o.id);
-        if (resolvedOrderIds.length > 0) {
-          Logger.info('Auto-completed orders after balance recovery', { userId, resolvedOrderIds });
-        }
-      }
-    }
-
-    return { previousBalance, newBalance, previousTotalEarned, newTotalEarned, resolvedOrderIds };
+    return {
+      previousBalance,
+      newBalance: newBalance + lotAmountReturned,
+      previousTotalEarned,
+      newTotalEarned,
+      resolvedOrderIds,
+      lotAmountReturned,
+    };
   }
 
   /**
@@ -510,6 +503,7 @@ export class AdminService {
           previousBalance: balanceResult.previousBalance,
           newBalance: balanceResult.newBalance,
           resolvedOrderIds: balanceResult.resolvedOrderIds,
+          lotAmountReturned: balanceResult.lotAmountReturned,
         });
       }
 
@@ -575,6 +569,7 @@ export class AdminService {
             }
           : undefined,
         resolved_order_ids: balanceResult?.resolvedOrderIds || [],
+        special_lot_amount_returned: balanceResult?.lotAmountReturned || 0,
       };
     } catch (error) {
       if (error instanceof AppError) {
@@ -638,6 +633,7 @@ export class AdminService {
         newBalance: result.newBalance,
         debitLogId: debitLog.id,
         resolvedOrderIds: result.resolvedOrderIds,
+        lotAmountReturned: result.lotAmountReturned,
       });
 
       return {
@@ -655,6 +651,7 @@ export class AdminService {
           can_be_negative: true,
         },
         resolved_order_ids: result.resolvedOrderIds,
+        special_lot_amount_returned: result.lotAmountReturned,
       };
     } catch (error) {
       if (error instanceof AppError) {

@@ -148,6 +148,10 @@ export default function AdminDashboard() {
       if (resolvedCount > 0) {
         message += ` ${resolvedCount} pending order(s) were completed now that the balance is no longer negative.`;
       }
+      const lotAmountReturned = data?.data?.special_lot_amount_returned || 0;
+      if (lotAmountReturned > 0) {
+        message += ` $${lotAmountReturned.toFixed(2)} special lot amount returned to the balance.`;
+      }
       alert(message);
       setShowDebitModal(false);
       setDebitAmount('');

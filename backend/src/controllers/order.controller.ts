@@ -44,7 +44,12 @@ export class OrderController {
 
     let message = '';
     if (result.is_special_lot) {
-      message = `Special lot completed! Earned $${result.commission.toFixed(2)} commission. Property cost $${result.deduction.toFixed(2)} deducted.`;
+      message = result.lot_amount_returned > 0
+        ? `Special lot completed! Earned $${result.commission.toFixed(2)} commission. Property cost $${result.lot_amount_returned.toFixed(2)} returned to your balance.`
+        : `Special lot completed! Earned $${result.commission.toFixed(2)} commission. Property cost $${result.deduction.toFixed(2)} deducted.`;
+      if (result.promoted_to) {
+        message += ` Your account is now ${result.promoted_to}.`;
+      }
     } else {
       message = `Order completed successfully! You earned $${result.commission.toFixed(2)}`;
     }

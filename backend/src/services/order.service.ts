@@ -19,6 +19,97 @@ export const REFERRAL_BONUS_RATE = 0.27;
 // longer applies and the balance only has to stay above zero.
 export const MINIMUM_BALANCE_TO_TRADE = 50;
 
+// Submitting a special lot moves a member up to this tier (by name). Members
+// already on it or on a higher tier keep theirs — see promoteAfterSpecialLot.
+export const SPECIAL_LOT_TIER_NAME = 'Gold';
+
+/**
+ * Complete every order that was left Pending under NEGATIVE_BALANCE_FLAG and
+ * hand back the full value of each special lot among them: a special lot's
+ * price is only held against the balance until the account is no longer
+ * negative. Call this once the balance is back at zero or above.
+ *
+ * Flipping the order out of Pending is what claims it, so if two credits
+ * land at once only the call that actually moved an order gets to return its
+ * lot amount — it can never be paid twice.
+ */
+export async function settleRecoveredOrders(userId: string) {
+  const { data: resolved, error: resolveError } = await supabaseAdmin
+    .from('orders')
+    .update({ status: 'Completed', property_name: null, created_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('status', 'Pending')
+    .eq('property_name', NEGATIVE_BALANCE_FLAG)
+    .select('id, property_id');
+
+  if (resolveError) {
+    Logger.error('Failed to auto-complete negative-balance orders', { userId, error: resolveError });
+    return { resolvedOrderIds: [] as string[], lotAmountReturned: 0 };
+  }
+
+  const orders = resolved || [];
+  const resolvedOrderIds = orders.map((o) => o.id as string);
+  if (orders.length === 0) {
+    return { resolvedOrderIds, lotAmountReturned: 0 };
+  }
+
+  Logger.info('Auto-completed orders after balance recovery', { userId, resolvedOrderIds });
+
+  const { data: lots } = await supabaseAdmin
+    .from('properties')
+    .select('id, name, price, value')
+    .in('id', orders.map((o) => o.property_id))
+    .eq('lot_type', 'special');
+
+  const lotsById = new Map((lots || []).map((lot) => [lot.id, lot]));
+  const returnedLots = orders
+    .map((o) => lotsById.get(o.property_id))
+    .filter((lot): lot is NonNullable<typeof lot> => !!lot);
+  // Same price expression OrderService.submitOrder deducted.
+  const lotAmountReturned = returnedLots.reduce((sum, lot) => sum + Number(lot.price || lot.value || 0), 0);
+
+  if (lotAmountReturned <= 0) {
+    return { resolvedOrderIds, lotAmountReturned: 0 };
+  }
+
+  const { data: wallet } = await supabaseAdmin
+    .from('wallets')
+    .select('balance')
+    .eq('user_id', userId)
+    .single();
+
+  const { error: creditError } = wallet
+    ? await supabaseAdmin
+        .from('wallets')
+        .update({ balance: Number(wallet.balance) + lotAmountReturned })
+        .eq('user_id', userId)
+    : { error: new Error('Wallet not found') };
+
+  if (creditError) {
+    // Put the orders back under the flag so the next recovery retries the
+    // return instead of the lot amount being silently lost.
+    Logger.error('Failed to return special lot amount; re-flagging orders', { userId, resolvedOrderIds, error: creditError });
+    await supabaseAdmin
+      .from('orders')
+      .update({ status: 'Pending', property_name: NEGATIVE_BALANCE_FLAG })
+      .in('id', resolvedOrderIds);
+    return { resolvedOrderIds: [] as string[], lotAmountReturned: 0 };
+  }
+
+  await supabaseAdmin.from('debits_log').insert(
+    returnedLots.map((lot) => ({
+      user_id: userId,
+      amount: Number(lot.price || lot.value || 0),
+      reason: `Special lot amount returned (${lot.name})`,
+      applied_by_admin_id: null,
+    }))
+  );
+
+  Logger.info('Special lot amount returned after balance recovery', { userId, lotAmountReturned });
+
+  return { resolvedOrderIds, lotAmountReturned };
+}
+
 export async function hasReceivedSpecialLot(userId: string): Promise<boolean> {
   const { count } = await supabaseAdmin
     .from('user_special_lots_queue')
@@ -77,15 +168,10 @@ export class OrderService {
       }
 
       // A referral bonus can pull the referrer's own balance back out of the
-      // negative — mirror AdminService.adjustWalletBalance's auto-resolution
-      // of any orders that were left Pending under NEGATIVE_BALANCE_FLAG.
+      // negative — settle their held orders the same way
+      // AdminService.adjustWalletBalance does.
       if (newBalance >= 0) {
-        await supabaseAdmin
-          .from('orders')
-          .update({ status: 'Completed', property_name: null, created_at: new Date().toISOString() })
-          .eq('user_id', referrerId)
-          .eq('status', 'Pending')
-          .eq('property_name', NEGATIVE_BALANCE_FLAG);
+        await settleRecoveredOrders(referrerId);
       }
 
       await supabaseAdmin.from('debits_log').insert({
@@ -98,6 +184,54 @@ export class OrderService {
       Logger.info('Referral bonus paid', { referrerId, bonus, sourceUsername });
     } catch (error) {
       Logger.error('Unexpected error paying referral bonus', { referrerId, error });
+    }
+  }
+
+  /**
+   * Move a member up to SPECIAL_LOT_TIER_NAME after they submit a special
+   * lot. Tiers are ranked by commission rate, and anyone already on that
+   * tier or higher keeps theirs, so this never demotes. Best-effort like
+   * payReferralBonus: the order is already paid out, so a failure here is
+   * logged rather than thrown. Returns the new tier's name, or null if the
+   * tier didn't change.
+   */
+  private static async promoteAfterSpecialLot(userId: string, currentTierId: number): Promise<string | null> {
+    try {
+      const { data: tiers, error: tiersError } = await supabaseAdmin
+        .from('membership_levels')
+        .select('id, name, commission_rate');
+
+      if (tiersError || !tiers) {
+        Logger.error('Special lot promotion: failed to fetch tiers', { userId, error: tiersError });
+        return null;
+      }
+
+      const target = tiers.find((t) => t.name?.trim().toLowerCase() === SPECIAL_LOT_TIER_NAME.toLowerCase());
+      if (!target) {
+        Logger.error('Special lot promotion: tier not found', { userId, tier: SPECIAL_LOT_TIER_NAME });
+        return null;
+      }
+
+      const current = tiers.find((t) => t.id === currentTierId);
+      if (current && Number(current.commission_rate) >= Number(target.commission_rate)) {
+        return null;
+      }
+
+      const { error: updateError } = await supabaseAdmin
+        .from('users')
+        .update({ tier_id: target.id })
+        .eq('id', userId);
+
+      if (updateError) {
+        Logger.error('Special lot promotion: failed to update tier', { userId, error: updateError });
+        return null;
+      }
+
+      Logger.info('Member promoted after special lot', { userId, from: current?.name, to: target.name });
+      return target.name;
+    } catch (error) {
+      Logger.error('Unexpected error promoting member after special lot', { userId, error });
+      return null;
     }
   }
 
@@ -449,10 +583,17 @@ export class OrderService {
       // This is allowed to go negative — e.g. price 10000, balance 5000,
       // commission 2700 -> new balance -2300. The transaction still goes
       // through; it's just flagged (see below) rather than blocked.
-      const netChange = isSpecialLot ? (commissionEarned - walletDeduction) : commissionEarned;
-      const newBalance = Number(wallet.balance) + netChange;
+      //
+      // The special lot's price is only held until the balance is no longer
+      // negative, then returned in full. If the member covered it outright
+      // that happens right here; otherwise settleRecoveredOrders returns it
+      // once a later credit brings the balance back to zero or above.
+      const balanceAfterDeduction = Number(wallet.balance) + (isSpecialLot ? commissionEarned - walletDeduction : commissionEarned);
+      const wentNegative = balanceAfterDeduction < 0;
+      const lotAmountReturned = isSpecialLot && !wentNegative ? walletDeduction : 0;
+      const newBalance = balanceAfterDeduction + lotAmountReturned;
+      const netChange = newBalance - Number(wallet.balance);
       const newTotalEarned = Number(wallet.total_earned) + commissionEarned;
-      const wentNegative = newBalance < 0;
 
       if (wentNegative) {
         // Flag the order that pushed the balance negative as Pending so it
@@ -487,10 +628,21 @@ export class OrderService {
         .update({ total_orders: (user.total_orders || 0) + 1 })
         .eq('id', userId);
 
+      if (lotAmountReturned > 0) {
+        await supabaseAdmin.from('debits_log').insert({
+          user_id: userId,
+          amount: lotAmountReturned,
+          reason: `Special lot amount returned (${property?.name})`,
+          applied_by_admin_id: null,
+        });
+      }
+
       // Pay the referrer their REFERRAL_BONUS_RATE cut of the commission just earned, if any.
       if (user.referrer_id) {
         await this.payReferralBonus(user.referrer_id, commissionEarned, user.username);
       }
+
+      const promotedTo = isSpecialLot ? await this.promoteAfterSpecialLot(userId, user.tier_id) : null;
 
       Logger.info('Order submitted successfully', {
         userId,
@@ -498,19 +650,23 @@ export class OrderService {
         isSpecialLot,
         commission: commissionEarned,
         deduction: walletDeduction,
+        lotAmountReturned,
         netChange,
         newBalance,
         wentNegative,
+        promotedTo,
       });
 
       return {
         success: true,
         commission: commissionEarned,
         deduction: walletDeduction,
+        lot_amount_returned: lotAmountReturned,
         net_change: netChange,
         went_negative: wentNegative,
         new_balance: newBalance,
         is_special_lot: isSpecialLot,
+        promoted_to: promotedTo,
       };
     } catch (error) {
       if (error instanceof AppError) {
