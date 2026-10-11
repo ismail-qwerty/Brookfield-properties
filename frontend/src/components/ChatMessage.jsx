@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import ChatImage from './ChatImage';
 
 // One chat bubble for the customer-facing chat (floating widget and Support
 // page), so both stay readable and identical. The agent console deliberately
@@ -7,8 +8,9 @@ import { useState, useRef } from 'react';
 // Text colors are set on the <p> elements themselves: the base stylesheet
 // gives every <p> a dark grey, which silently overrode the bubble's inherited
 // white and left sent messages grey-on-black.
-export default function ChatMessage({ msg, mine, compact = false, onDelete }) {
-  const hasImage = msg.message_type === 'image' && msg.image_url;
+export default function ChatMessage({ msg, mine, compact = false, onDelete, guestToken = null }) {
+  // Lists arrive without the photo itself; ChatImage fetches it when shown.
+  const hasImage = msg.message_type === 'image';
   const caption = hasImage ? (msg.message !== 'Sent an image' ? msg.message : null) : msg.message;
   const time = msg.pending
     ? 'Sending…'
@@ -88,11 +90,10 @@ export default function ChatMessage({ msg, mine, compact = false, onDelete }) {
         } ${msg.pending ? 'opacity-60' : ''}`}
       >
         {hasImage && (
-          <img
-            src={msg.image_url}
-            alt="Shared attachment"
-            className={`max-w-full h-auto rounded-[12px] cursor-pointer ${compact ? 'max-h-40' : 'max-h-64'} ${caption ? 'mb-2' : ''}`}
-            onClick={() => window.open(msg.image_url, '_blank')}
+          <ChatImage
+            msg={msg}
+            guestToken={guestToken}
+            className={`max-w-full h-auto rounded-[12px] ${compact ? 'max-h-40' : 'max-h-64'} ${caption ? 'mb-2' : ''}`}
           />
         )}
         {caption && (

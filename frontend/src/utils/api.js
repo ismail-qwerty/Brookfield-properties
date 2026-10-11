@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { clearChatCache } from './chatCache';
+import { clearAdminCache } from './adminCache';
 
 // Base API URL - Update this to match your backend
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
@@ -41,6 +43,8 @@ apiClient.interceptors.response.use(
           // Unauthorized - clear auth and redirect to login
           localStorage.removeItem('authToken');
           localStorage.removeItem('user');
+          clearChatCache();
+          clearAdminCache();
           window.location.href = '/user-login';
           break;
         case 403:

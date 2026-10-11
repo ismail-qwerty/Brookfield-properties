@@ -3,6 +3,19 @@ import { ChatService } from '../services/chat.service.js';
 import { ResponseUtil } from '../utils/response.js';
 import { AuthRequest } from '../types/index.js';
 
+const queryString = (value: unknown) => (typeof value === 'string' ? value : undefined);
+
+// A photo never changes once sent (a delete removes it), so the browser may
+// keep it for good and never ask the database for it again.
+const sendImage = (
+  res: Response,
+  image: { contentType: string | null; body: Buffer | null; redirect: string | null }
+) => {
+  if (image.redirect) return res.redirect(image.redirect);
+  res.set('Cache-Control', 'private, max-age=31536000, immutable');
+  res.type(image.contentType || 'application/octet-stream').send(image.body);
+};
+
 export class ChatController {
   // Guest chat: no account, identified by the token their browser holds.
   static async getGuestConversation(req: Request, res: Response, next: NextFunction) {
@@ -18,9 +31,17 @@ export class ChatController {
   static async getGuestMessages(req: Request, res: Response, next: NextFunction) {
     try {
       const token = String(req.query.token || '');
-      const after = typeof req.query.after === 'string' ? req.query.after : undefined;
-      const messages = await ChatService.getGuestMessages(token, after);
+      const messages = await ChatService.getGuestMessages(token, queryString(req.query.after), queryString(req.query.deleted_after));
       ResponseUtil.success(res, messages, 'Messages retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getGuestMessageImage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const image = await ChatService.getGuestMessageImage(String(req.query.token || ''), req.params.messageId);
+      sendImage(res, image);
     } catch (error) {
       next(error);
     }
@@ -50,9 +71,23 @@ export class ChatController {
   static async getMessages(req: Request, res: Response, next: NextFunction) {
     try {
       const conversationId = req.params.conversationId;
-      const after = typeof req.query.after === 'string' ? req.query.after : undefined;
-      const messages = await ChatService.getMessages(conversationId, (req as AuthRequest).user, after);
+      const messages = await ChatService.getMessages(
+        conversationId,
+        (req as AuthRequest).user,
+        queryString(req.query.after),
+        queryString(req.query.deleted_after)
+      );
       ResponseUtil.success(res, messages, 'Messages retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getMessageImage(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { conversationId, messageId } = req.params;
+      const image = await ChatService.getMessageImage(conversationId, messageId, (req as AuthRequest).user);
+      sendImage(res, image);
     } catch (error) {
       next(error);
     }

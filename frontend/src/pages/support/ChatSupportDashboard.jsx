@@ -3,6 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
 import { Skeleton, SkeletonRegion } from '../../components/ui';
 import useChatMessages from '../../hooks/useChatMessages';
+import ChatImage from '../../components/ChatImage';
+import { compressImage, MAX_IMAGE_CHARS } from '../../utils/chatImages';
 import { getCachedConversations, setCachedConversations } from '../../utils/chatCache';
 
 // The agent console is used for hours at a stretch, so unlike the customer
@@ -33,6 +35,10 @@ const STATUS_TABS = [
   { value: 'Active', label: 'Active' },
   { value: 'Closed', label: 'Closed' },
 ];
+
+// The list is shared by every agent and cached on the server, so a poll is
+// cheap; hidden tabs still skip it and catch up when shown again.
+const CONVERSATION_POLL_MS = 5000;
 
 const AVATAR_COLORS = ['#6bcbef', '#e5a50a', '#ff8e4f', '#35cd96', '#a88bfc', '#e5739c', '#53a7e8', '#f2786b'];
 
@@ -117,7 +123,8 @@ function Ticks({ pending }) {
 }
 
 function Bubble({ msg, mine, onDelete }) {
-  const hasImage = msg.message_type === 'image' && msg.image_url;
+  // Lists arrive without the photo itself; ChatImage fetches it when shown.
+  const hasImage = msg.message_type === 'image';
   const caption = hasImage ? (msg.message !== 'Sent an image' ? msg.message : null) : msg.message;
   const [menuOpen, setMenuOpen] = useState(false);
   const holdTimer = useRef(null);
@@ -206,12 +213,7 @@ function Bubble({ msg, mine, onDelete }) {
         style={{ background: mine ? C.outgoing : C.incoming, boxShadow: '0 1px 0.5px rgba(11,20,26,0.13)' }}
       >
         {hasImage && (
-          <img
-            src={msg.image_url}
-            alt="Shared attachment"
-            className="block max-w-full max-h-72 rounded-[6px] cursor-pointer"
-            onClick={() => window.open(msg.image_url, '_blank')}
-          />
+          <ChatImage msg={msg} className="block max-w-full max-h-72 rounded-[6px]" />
         )}
         {caption && (
           <p
@@ -264,6 +266,9 @@ export default function ChatSupportDashboard() {
   const inputRef = useRef(null);
   const prevMessageCountRef = useRef(0);
   const unreadSeenRef = useRef(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [listError, setListError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const selectedIdRef = useRef(null);
 
   selectedIdRef.current = selectedConv?.id || null;
@@ -291,6 +296,8 @@ export default function ChatSupportDashboard() {
       const list = data.data || [];
       setConversations(list);
       if (filter === 'Active') setCachedConversations(list);
+      setLastUpdated(new Date());
+      setListError(false);
 
       // Alert on anything that arrived since the last poll, except in the
       // thread currently on screen (which is being read anyway).
@@ -305,6 +312,7 @@ export default function ChatSupportDashboard() {
       unreadSeenRef.current = next;
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
+      setListError(true);
     } finally {
       setLoading(false);
     }
@@ -313,9 +321,22 @@ export default function ChatSupportDashboard() {
   useEffect(() => {
     setLoading(!(filter === 'Active' && getCachedConversations()));
     fetchConversations();
-    const convInterval = setInterval(fetchConversations, 3000);
-    return () => clearInterval(convInterval);
+    const tick = () => {
+      if (!document.hidden) fetchConversations();
+    };
+    const convInterval = setInterval(tick, CONVERSATION_POLL_MS);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(convInterval);
+      document.removeEventListener('visibilitychange', tick);
+    };
   }, [fetchConversations, filter]);
+
+  const refreshNow = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchConversations(), loadCanned()]);
+    setRefreshing(false);
+  };
 
   // Saved messages are small and rarely change, so they load once.
   const loadCanned = useCallback(async () => {
@@ -356,20 +377,24 @@ export default function ChatSupportDashboard() {
     }
   };
 
-  const handleImageSelect = (e) => {
+  // Photos are shrunk before sending (see compressImage), so a large phone
+  // photo is fine; only what is still too big after that is refused.
+  const handleImageSelect = async (e) => {
     const file = e.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      // Check file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Image size must be less than 5MB');
+    if (!file || !file.type.startsWith('image/')) return;
+    setSelectedImage(file);
+    setImagePreview(null);
+    try {
+      const dataUrl = await compressImage(file);
+      if (dataUrl.length > MAX_IMAGE_CHARS) {
+        alert('This image is too large. Please choose a smaller one.');
+        handleRemoveImage();
         return;
       }
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      setImagePreview(dataUrl);
+    } catch {
+      alert('Could not read that image.');
+      handleRemoveImage();
     }
   };
 
@@ -603,6 +628,42 @@ export default function ChatSupportDashboard() {
                 </button>
               );
             })}
+          </div>
+
+          {/* Refresh bar */}
+          <div
+            className="px-4 h-[34px] flex items-center justify-between gap-3 flex-shrink-0 border-b text-[12.5px]"
+            style={{ borderColor: C.divider, background: listError ? '#fdecea' : C.panel }}
+          >
+            <span className="truncate tnum" style={{ color: listError ? '#c0392b' : C.subtext }} aria-live="polite">
+              {listError
+                ? 'Connection problem, retrying…'
+                : lastUpdated
+                  ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                  : 'Loading…'}
+            </span>
+            <button
+              type="button"
+              onClick={refreshNow}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 h-7 px-2.5 rounded-full font-medium transition-colors hover:bg-black/5 disabled:opacity-60 flex-shrink-0"
+              style={{ color: C.accentDark }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 12a9 9 0 11-2.64-6.36" />
+                <path d="M21 4v5h-5" />
+              </svg>
+              {refreshing ? 'Refreshing' : 'Refresh'}
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto">

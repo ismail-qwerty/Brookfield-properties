@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { ENV } from '../config/environment.js';
 import { ResponseUtil } from '../utils/response.js';
-import { supabaseAdmin } from '../config/database.js';
+import { getCachedUser } from '../utils/userCache.js';
 import { AuthRequest, User } from '../types/index.js';
 
 export const authenticate = async (
@@ -20,13 +20,9 @@ export const authenticate = async (
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, ENV.JWT.SECRET) as { userId: string };
 
-    const { data: user, error } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', decoded.userId)
-      .single();
+    const user = await getCachedUser(decoded.userId);
 
-    if (error || !user) {
+    if (!user) {
       return ResponseUtil.unauthorized(res, 'Invalid token');
     }
 

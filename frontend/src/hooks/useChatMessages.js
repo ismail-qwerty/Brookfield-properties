@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../utils/api';
 import { getCachedMessages, setCachedMessages } from '../utils/chatCache';
 
-const POLL_MS = 2000;
+const POLL_MS = 3000;
 
 // Messages for one conversation, kept live by polling.
-// - After the first load, each poll asks only for messages newer than the last
-//   one seen, so an idle thread costs an almost-empty response.
+// - After the first load, each poll asks only for what changed since the
+//   newest message and the newest deletion it has seen. When nothing has, the
+//   server answers from memory without touching the database.
 // - Polls are chained (the next starts after the previous finishes), so slow
 //   responses never pile up, and polling pauses while the tab is hidden.
 // - send() shows the message immediately and swaps in the saved copy when the
@@ -16,6 +17,7 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
   // messages, without having to reset state inside an effect.
   const [thread, setThread] = useState({ id: null, messages: [], loaded: false });
   const latestRef = useRef(null);
+  const deletedRef = useRef(null);
 
   // Show the cached copy of a thread the moment it is opened, then let the
   // poll below fill in anything newer.
@@ -52,6 +54,7 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
     let first = true;
     let inFlight = false;
     latestRef.current = null;
+    deletedRef.current = null;
 
     const poll = async () => {
       if (inFlight) return;
@@ -60,11 +63,10 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
         inFlight = true;
         try {
           const after = latestRef.current;
+          const cursors = after ? { after, ...(deletedRef.current ? { deleted_after: deletedRef.current } : {}) } : {};
           const { data } = guestToken
-            ? await api.get('/chat/guest/messages', { params: { token: guestToken, ...(after ? { after } : {}) } })
-            : await api.get(`/chat/conversations/${conversationId}/messages`, {
-                params: after ? { after } : undefined,
-              });
+            ? await api.get('/chat/guest/messages', { params: { token: guestToken, ...cursors } })
+            : await api.get(`/chat/conversations/${conversationId}/messages`, { params: cursors });
           if (cancelled) return;
           const incoming = data.data || [];
           // Only server rows move the cursor: advancing it past a message we
@@ -74,6 +76,7 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
           // would otherwise drag the cursor backwards.
           for (const m of incoming) {
             if (!latestRef.current || m.created_at > latestRef.current) latestRef.current = m.created_at;
+            if (m.deleted_at && (!deletedRef.current || m.deleted_at > deletedRef.current)) deletedRef.current = m.deleted_at;
           }
           appendTo(conversationId, incoming);
           if (markRead && !guestToken && incoming.some((m) => m.sender_id !== userId)) {
@@ -134,12 +137,15 @@ export default function useChatMessages(conversationId, { userId, markRead = fal
         setThread((prev) => {
           if (prev.id !== conversationId) return prev;
           // A poll may have delivered the saved copy before this response did.
+          // Either way keep the local photo preview, so a just-sent photo is
+          // never downloaded straight back.
+          const keepPreview = (m) => (imageUrl && !m.image_url ? { ...m, image_url: imageUrl } : m);
           const alreadyThere = prev.messages.some((m) => m.id === saved.id);
           return {
             ...prev,
             messages: alreadyThere
-              ? prev.messages.filter((m) => m.id !== tempId)
-              : prev.messages.map((m) => (m.id === tempId ? saved : m)),
+              ? prev.messages.filter((m) => m.id !== tempId).map((m) => (m.id === saved.id ? keepPreview(m) : m))
+              : prev.messages.map((m) => (m.id === tempId ? keepPreview(saved) : m)),
           };
         });
       } catch (error) {

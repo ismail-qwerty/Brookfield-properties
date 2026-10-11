@@ -10,6 +10,7 @@ const router = Router();
 router.post('/guest/conversation', ChatController.getGuestConversation);
 router.get('/guest/messages', ChatController.getGuestMessages);
 router.post('/guest/messages', ChatController.sendGuestMessage);
+router.get('/guest/messages/:messageId/image', ChatController.getGuestMessageImage);
 
 // Everything below requires authentication
 router.use(authenticate);
@@ -18,6 +19,7 @@ router.use(authenticate);
 router.get('/conversation', ChatController.getUserConversation);
 router.get('/conversations/:conversationId/messages', ChatController.getMessages);
 router.post('/conversations/:conversationId/messages', ChatController.sendMessage);
+router.get('/conversations/:conversationId/messages/:messageId/image', ChatController.getMessageImage);
 router.delete('/conversations/:conversationId/messages/:messageId', ChatController.deleteMessage);
 router.put('/conversations/:conversationId/read', ChatController.markAsRead);
 router.get('/unread-count', ChatController.getUnreadCount);

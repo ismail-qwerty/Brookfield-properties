@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { Logger } from '../utils/logger.js';
+import { invalidateUser } from '../utils/userCache.js';
 import { NEGATIVE_BALANCE_FLAG, settleRecoveredOrders } from './order.service.js';
 
 export class AdminService {
@@ -147,54 +148,59 @@ export class AdminService {
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
 
-      // Get referrer names + today's activity for each user
-      const usersWithReferrers = await Promise.all(
-        (users || []).map(async (user) => {
-          // Supabase returns relationships as arrays, so extract first element
-          const wallet = Array.isArray(user.wallets) ? user.wallets[0] : user.wallets;
-          const membership = Array.isArray(user.membership_levels) ? user.membership_levels[0] : user.membership_levels;
+      // Referrer names and today's activity for the whole page come from two
+      // batched queries, not two per user (which was ~60 queries a refresh).
+      const pageUsers = users || [];
+      const userIds = pageUsers.map((u) => u.id);
+      const referrerIds = [...new Set(pageUsers.map((u) => u.referrer_id).filter(Boolean))];
 
-          let referrer_name = null;
-          if (user.referrer_id) {
-            const { data: referrer } = await supabaseAdmin
-              .from('users')
-              .select('username, full_name')
-              .eq('id', user.referrer_id)
-              .single();
-            referrer_name = referrer?.username || null;
-          }
+      const [referrersResult, todayOrdersResult] = await Promise.all([
+        referrerIds.length
+          ? supabaseAdmin.from('users').select('id, username').in('id', referrerIds)
+          : Promise.resolve({ data: [] as { id: string; username: string }[], error: null }),
+        // Commission is earned (and already paid into the wallet) the
+        // moment an order is submitted, even if it got left `Pending`
+        // under NEGATIVE_BALANCE_FLAG because it pushed the balance
+        // negative — so those still count as "today's earnings" too,
+        // not just orders that ended up `Completed`.
+        userIds.length
+          ? supabaseAdmin
+              .from('orders')
+              .select('user_id, commission')
+              .in('user_id', userIds)
+              .or(`status.eq.Completed,and(status.eq.Pending,property_name.eq.${NEGATIVE_BALANCE_FLAG})`)
+              .gte('created_at', todayISO)
+          : Promise.resolve({ data: [] as { user_id: string; commission: number }[], error: null }),
+      ]);
 
-          // Commission is earned (and already paid into the wallet) the
-          // moment an order is submitted, even if it got left `Pending`
-          // under NEGATIVE_BALANCE_FLAG because it pushed the balance
-          // negative — so those still count as "today's earnings" too,
-          // not just orders that ended up `Completed`.
-          const { data: todayOrders, error: todayOrdersError } = await supabaseAdmin
-            .from('orders')
-            .select('commission')
-            .eq('user_id', user.id)
-            .or(`status.eq.Completed,and(status.eq.Pending,property_name.eq.${NEGATIVE_BALANCE_FLAG})`)
-            .gte('created_at', todayISO);
+      if (todayOrdersResult.error) {
+        Logger.error("Failed to fetch today's orders for admin list", { error: todayOrdersResult.error });
+      }
 
-          if (todayOrdersError) {
-            Logger.error('Failed to fetch today\'s orders for user in admin list', {
-              userId: user.id,
-              error: todayOrdersError,
-            });
-          }
+      const referrerNames = new Map((referrersResult.data || []).map((r) => [String(r.id), r.username]));
+      const todayByUser = new Map<string, { earnings: number; count: number }>();
+      for (const o of todayOrdersResult.data || []) {
+        const entry = todayByUser.get(String(o.user_id)) || { earnings: 0, count: 0 };
+        entry.earnings += Number(o.commission);
+        entry.count += 1;
+        todayByUser.set(String(o.user_id), entry);
+      }
 
-          const today_earnings = (todayOrders || []).reduce((sum, o) => sum + Number(o.commission), 0);
+      const usersWithReferrers = pageUsers.map((user) => {
+        // Supabase returns relationships as arrays, so extract first element
+        const wallet = Array.isArray(user.wallets) ? user.wallets[0] : user.wallets;
+        const membership = Array.isArray(user.membership_levels) ? user.membership_levels[0] : user.membership_levels;
+        const today = todayByUser.get(String(user.id));
 
-          return {
-            ...user,
-            referrer_name,
-            wallet: wallet || null,
-            membership: membership || null,
-            today_earnings,
-            orders_today: (todayOrders || []).length,
-          };
-        })
-      );
+        return {
+          ...user,
+          referrer_name: user.referrer_id ? referrerNames.get(String(user.referrer_id)) || null : null,
+          wallet: wallet || null,
+          membership: membership || null,
+          today_earnings: today?.earnings || 0,
+          orders_today: today?.count || 0,
+        };
+      });
 
       return {
         users: usersWithReferrers,
@@ -548,6 +554,8 @@ export class AdminService {
         }
 
         updatedUser = data;
+        // Status, role and wallet access are read from the auth cache.
+        invalidateUser(userId);
       }
 
       Logger.info('User updated successfully', {

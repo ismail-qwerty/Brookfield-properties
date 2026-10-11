@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { clearChatCache } from '../utils/chatCache';
+import { clearAdminCache } from '../utils/adminCache';
 
 const AuthContext = createContext(null);
 
@@ -73,9 +75,12 @@ export const AuthProvider = ({ children }) => {
   // Logout function
   const logout = () => {
     try {
-      // Clear storage
+      // Clear storage, including cached customer data from the admin and
+      // support pages, so the next person on this browser never sees it.
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
+      clearChatCache();
+      clearAdminCache();
 
       // Clear state
       setToken(null);

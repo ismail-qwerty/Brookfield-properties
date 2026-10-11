@@ -7,24 +7,128 @@ type ChatUser = Pick<User, 'id' | 'user_type'>;
 
 // A conversation belongs to its customer and its assigned agent; support staff
 // may act on any of them (an agent opens a thread before it's assigned).
-const canAccessConversation = (
-  conv: { user_id: string; support_agent_id: string | null } | null,
-  user: ChatUser
-) => !!conv && (isSupportStaff(user) || conv.user_id === user.id || conv.support_agent_id === user.id);
+type ConversationAccess = { user_id: string; support_agent_id: string | null };
 
-const fetchConversationAccess = (conversationId: string) =>
-  supabaseAdmin
+const canAccessConversation = (conv: ConversationAccess | null, user: ChatUser) =>
+  !!conv && (isSupportStaff(user) || String(conv.user_id) === String(user.id) || String(conv.support_agent_id) === String(user.id));
+
+// --- In-memory bookkeeping that lets idle polls skip the database ----------
+//
+// Open chats poll every few seconds. This server writes every chat message, so
+// it can tell when a thread has nothing new and answer without a query. Every
+// entry expires, so a restart or a second server instance only ever costs a
+// fresh read, never a missed message.
+const STATE_TTL_MS = 30_000;
+const ACCESS_TTL_MS = 5 * 60_000;
+
+// A conversation's owner never changes and only staff (who may open any
+// thread) are ever assigned, so access can be remembered.
+const accessCache = new Map<string, { conv: ConversationAccess; expires: number }>();
+
+// Upper bounds on the newest created_at and deleted_at in each thread, in
+// microseconds. A poll whose cursors are already past both has nothing to get.
+const threadState = new Map<string, { created: number; deleted: number; expires: number }>();
+
+// Guest token -> their conversation id, so guest polls skip the lookup.
+const guestConvCache = new Map<string, { id: string; expires: number }>();
+
+// The support console's conversation list, shared by every agent and
+// rebuilt only after a chat changes (or when it expires).
+const listCache = new Map<string, { data: any[]; expires: number }>();
+const LIST_TTL_MS = 15_000;
+
+const invalidateConversationList = () => listCache.clear();
+
+// Timestamps come back from the database without a zone, in UTC. Date.parse
+// would read those as local time and drops microseconds, so both are handled
+// here to keep every comparison exact.
+const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})?$/;
+
+const toMicros = (iso: string | null | undefined): number => {
+  if (!iso) return 0;
+  const withZone = /(Z|[+-]\d{2}:\d{2})$/.test(iso) ? iso : `${iso}Z`;
+  const ms = Date.parse(withZone);
+  if (Number.isNaN(ms)) return 0;
+  const frac = iso.match(/\.(\d+)/)?.[1] || '';
+  return ms * 1000 + Number((frac + '000000').slice(3, 6));
+};
+
+// `after` cursors come from the query string and end up inside a PostgREST
+// filter, so only a plain timestamp is accepted.
+const parseCursor = (value?: string) => (value && TIMESTAMP_RE.test(value) ? value : undefined);
+
+const fetchConversationAccess = async (conversationId: string): Promise<ConversationAccess | null> => {
+  const key = String(conversationId);
+  const hit = accessCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.conv;
+
+  const { data } = await supabaseAdmin
     .from('chat_conversations')
     .select('user_id, support_agent_id')
     .eq('id', conversationId)
     .single();
 
+  if (!data) return null;
+  accessCache.set(key, { conv: data, expires: Date.now() + ACCESS_TTL_MS });
+  return data;
+};
+
 // Throws before the caller touches anything, so no write happens without access.
 const assertConversationAccess = async (conversationId: string, user: ChatUser) => {
-  const { data: conv } = await fetchConversationAccess(conversationId);
+  const conv = await fetchConversationAccess(conversationId);
   if (!canAccessConversation(conv, user)) {
     throw new AppError(403, 'Access denied');
   }
+};
+
+const isThreadQuiet = (conversationId: string, after?: string, deletedAfter?: string) => {
+  const state = threadState.get(String(conversationId));
+  if (!state || state.expires <= Date.now()) return false;
+  // Without a cursor the client wants the whole thread, which is only
+  // known to be empty, never known to be unchanged.
+  if (!after) return state.created === 0 && state.deleted === 0;
+  return toMicros(after) >= state.created && toMicros(deletedAfter || after) >= state.deleted;
+};
+
+const recordFetch = (conversationId: string, rows: any[], after?: string, deletedAfter?: string) => {
+  let created = after ? toMicros(after) : 0;
+  let deleted = after ? toMicros(deletedAfter || after) : 0;
+  for (const m of rows) {
+    created = Math.max(created, toMicros(m.created_at));
+    deleted = Math.max(deleted, toMicros(m.deleted_at));
+  }
+  threadState.set(String(conversationId), { created, deleted, expires: Date.now() + STATE_TTL_MS });
+};
+
+const recordWrite = (conversationId: string, { created, deleted }: { created?: string; deleted?: string }) => {
+  invalidateConversationList();
+  const state = threadState.get(String(conversationId));
+  if (!state) return;
+  if (created) state.created = Math.max(state.created, toMicros(created));
+  if (deleted) state.deleted = Math.max(state.deleted, toMicros(deleted));
+};
+
+// Message rows without image_url: photos are stored inline as data URLs of a
+// megabyte or more each, so lists never carry them. Clients load each photo
+// on its own (see getMessageImage) and the browser keeps it.
+const MESSAGE_COLUMNS =
+  'id, conversation_id, message, is_read, created_at, message_type, sender_id, from_guest, deleted_at, deleted_by';
+
+const withoutImage = <T extends Record<string, any>>(row: T) => {
+  const { image_url, ...rest } = row;
+  return rest;
+};
+
+// Polls ask only for what changed since their cursors: messages created after
+// `after`, or deleted after `deletedAfter` (a delete further up the thread
+// still has to reach the other side).
+const changedSince = (query: any, after?: string, deletedAfter?: string) =>
+  after ? query.or(`created_at.gt."${after}",deleted_at.gt."${deletedAfter || after}"`) : query;
+
+const decodeDataUrl = (value: string) => {
+  const match = value.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+  if (!match) return null;
+  return { contentType: match[1], body: Buffer.from(match[2], 'base64') };
 };
 
 // Members only ever see replies from "Chat Support", never the agent's own
@@ -68,7 +172,10 @@ export class ChatService {
       .limit(1)
       .maybeSingle();
 
-    if (existing) return existing;
+    if (existing) {
+      guestConvCache.set(token, { id: existing.id, expires: Date.now() + ACCESS_TTL_MS });
+      return existing;
+    }
 
     // Short readable label so the agent sees "Guest 4F2A" rather than a token.
     const label = `Guest ${token.slice(0, 4).toUpperCase()}`;
@@ -82,50 +189,56 @@ export class ChatService {
       throw new AppError(500, 'Failed to start chat');
     }
 
+    guestConvCache.set(token, { id: created.id, expires: Date.now() + ACCESS_TTL_MS });
+    invalidateConversationList();
     return created;
   }
 
   private static async guestConversationOrThrow(token: string) {
     assertGuestToken(token);
+    const hit = guestConvCache.get(token);
+    if (hit && hit.expires > Date.now()) return { id: hit.id };
+
     const { data: conv } = await supabaseAdmin
       .from('chat_conversations')
-      .select('id, guest_token')
+      .select('id')
       .eq('guest_token', token)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (!conv) throw new AppError(404, 'Chat not found');
+    guestConvCache.set(token, { id: conv.id, expires: Date.now() + ACCESS_TTL_MS });
     return conv;
   }
 
-  static async getGuestMessages(token: string, after?: string) {
+  static async getGuestMessages(token: string, after?: string, deletedAfter?: string) {
     const conv = await this.guestConversationOrThrow(token);
+    const since = parseCursor(after);
+    const deletedSince = parseCursor(deletedAfter);
 
-    let query = supabaseAdmin
-      .from('chat_messages')
-      .select('*')
-      .eq('conversation_id', conv.id)
-      .order('created_at', { ascending: true });
+    if (isThreadQuiet(conv.id, since, deletedSince)) return [];
 
-    if (after) query = query.gt('created_at', after);
-
-    // As for signed-in members: a message deleted earlier in the thread has to
-    // reach the guest too, and it sits behind their cursor.
-    const [{ data, error }, deleted] = await Promise.all([
-      query,
-      after
-        ? supabaseAdmin.from('chat_messages').select('*').eq('conversation_id', conv.id).gt('deleted_at', after)
-        : Promise.resolve({ data: [] as any[] }),
-    ]);
+    const { data, error } = await changedSince(
+      supabaseAdmin
+        .from('chat_messages')
+        .select(MESSAGE_COLUMNS)
+        .eq('conversation_id', conv.id)
+        .order('created_at', { ascending: true }),
+      since,
+      deletedSince
+    );
 
     if (error) throw new AppError(500, 'Failed to fetch messages');
-
-    const seen = new Set((data || []).map((m) => m.id));
-    const merged = [...(data || []), ...((deleted?.data || []).filter((m: any) => !seen.has(m.id)))];
+    recordFetch(conv.id, data || [], since, deletedSince);
 
     // Guests never see who replied, only that support did.
-    return merged.map((m) => ({ ...m, sender: m.from_guest ? null : { username: SUPPORT_DISPLAY_NAME } }));
+    return (data || []).map((m: any) => ({ ...m, sender: m.from_guest ? null : { username: SUPPORT_DISPLAY_NAME } }));
+  }
+
+  static async getGuestMessageImage(token: string, messageId: string) {
+    const conv = await this.guestConversationOrThrow(token);
+    return this.loadImage(conv.id, messageId);
   }
 
   static async sendGuestMessage(token: string, message: string) {
@@ -139,7 +252,7 @@ export class ChatService {
       supabaseAdmin
         .from('chat_messages')
         .insert({ conversation_id: conv.id, sender_id: null, from_guest: true, message_type: 'text', message: text })
-        .select('*')
+        .select(MESSAGE_COLUMNS)
         .single(),
       supabaseAdmin
         .from('chat_conversations')
@@ -147,10 +260,12 @@ export class ChatService {
         .eq('id', conv.id),
     ]);
 
-    if (error) throw new AppError(500, 'Failed to send message');
+    if (error || !data) throw new AppError(500, 'Failed to send message');
+    recordWrite(conv.id, { created: (data as any).created_at });
 
     return data;
   }
+
   // User creates or gets existing conversation
   static async getUserConversation(userId: string) {
     // Check for existing open conversation
@@ -181,56 +296,59 @@ export class ChatService {
       throw new AppError(500, 'Failed to create conversation');
     }
 
+    invalidateConversationList();
     return newConv;
   }
 
   // Get messages for a conversation. With `after` (an ISO timestamp), returns
-  // only newer messages, so polling clients don't re-download the whole thread
-  // (including base64 image attachments) on every tick.
-  static async getMessages(conversationId: string, user: ChatUser, after?: string) {
-    let messagesQuery = supabaseAdmin
-      .from('chat_messages')
-      .select(`
-        *,
-        sender:users!sender_id(id, username, user_type)
-      `)
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
+  // only what changed since, so polling clients don't re-download the thread;
+  // when nothing has changed the answer comes from memory with no query.
+  static async getMessages(conversationId: string, user: ChatUser, after?: string, deletedAfter?: string) {
+    await assertConversationAccess(conversationId, user);
 
-    if (after) {
-      messagesQuery = messagesQuery.gt('created_at', after);
-    }
+    const since = parseCursor(after);
+    const deletedSince = parseCursor(deletedAfter);
+    if (isThreadQuiet(conversationId, since, deletedSince)) return [];
 
-    // Polls ask only for newer messages, so a message deleted further up the
-    // thread would never reach the other side. Fetch those separately.
-    const deletedQuery = after
-      ? supabaseAdmin
-          .from('chat_messages')
-          .select('*')
-          .eq('conversation_id', conversationId)
-          .gt('deleted_at', after)
-      : null;
-
-    // Reading is side-effect free, so the access check and the fetch can run
-    // together; nothing is returned unless access passes.
-    const [{ data: conv }, { data: messages, error }, deletedResult] = await Promise.all([
-      fetchConversationAccess(conversationId),
-      messagesQuery,
-      deletedQuery,
-    ]);
-
-    if (!canAccessConversation(conv, user)) {
-      throw new AppError(403, 'Access denied');
-    }
+    const { data: messages, error } = await changedSince(
+      supabaseAdmin
+        .from('chat_messages')
+        .select(`${MESSAGE_COLUMNS}, sender:users!sender_id(id, username, user_type)`)
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true }),
+      since,
+      deletedSince
+    );
 
     if (error) {
       throw new AppError(500, 'Failed to fetch messages');
     }
 
-    const seen = new Set((messages || []).map((m) => m.id));
-    const merged = [...(messages || []), ...((deletedResult?.data || []).filter((m) => !seen.has(m.id)))];
+    recordFetch(conversationId, messages || [], since, deletedSince);
+    return maskStaffSenders(messages || [], user);
+  }
 
-    return maskStaffSenders(merged, user);
+  // One photo, on its own. Message lists leave photos out (see
+  // MESSAGE_COLUMNS), so each is read once and then cached by the browser.
+  static async getMessageImage(conversationId: string, messageId: string, user: ChatUser) {
+    await assertConversationAccess(conversationId, user);
+    return this.loadImage(conversationId, messageId);
+  }
+
+  private static async loadImage(conversationId: string, messageId: string) {
+    const { data } = await supabaseAdmin
+      .from('chat_messages')
+      .select('image_url, deleted_at')
+      .eq('id', messageId)
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+
+    if (!data?.image_url || data.deleted_at) {
+      throw new AppError(404, 'Image not found');
+    }
+
+    const inline = decodeDataUrl(data.image_url);
+    return inline ? { ...inline, redirect: null } : { contentType: null, body: null, redirect: data.image_url as string };
   }
 
   // Send a message
@@ -243,12 +361,16 @@ export class ChatService {
     };
 
     if (imageUrl) {
+      if (!/^data:image\/[a-z0-9.+-]+;base64,/i.test(imageUrl) && !/^https:\/\//i.test(imageUrl)) {
+        throw new AppError(400, 'Unsupported image');
+      }
       messageData.message_type = 'image';
       messageData.image_url = imageUrl;
       messageData.message = message || 'Sent an image';
     } else {
       messageData.message_type = 'text';
-      messageData.message = message.trim();
+      messageData.message = (message || '').trim();
+      if (!messageData.message) throw new AppError(400, 'Message is required');
     }
 
     // Bumping the conversation's timestamp doesn't depend on the insert, so do
@@ -257,7 +379,7 @@ export class ChatService {
       supabaseAdmin
         .from('chat_messages')
         .insert(messageData)
-        .select('*, sender:users!sender_id(id, username, user_type)')
+        .select(`${MESSAGE_COLUMNS}, sender:users!sender_id(id, username, user_type)`)
         .single(),
       supabaseAdmin
         .from('chat_conversations')
@@ -265,10 +387,11 @@ export class ChatService {
         .eq('id', conversationId),
     ]);
 
-    if (error) {
+    if (error || !data) {
       throw new AppError(500, 'Failed to send message');
     }
 
+    recordWrite(conversationId, { created: (data as any).created_at });
     return data;
   }
 
@@ -276,14 +399,25 @@ export class ChatService {
   // 'Active', which merges the waiting and in-progress queues into one list.
   // Each row carries its last message and the agent's unread count so the
   // console can show previews and badges without a request per conversation.
+  // Every open console polls this, so the result is shared between agents and
+  // only rebuilt after a chat changes.
   static async getAllConversations(status?: string) {
+    const key = status || 'all';
+    const hit = listCache.get(key);
+    if (hit && hit.expires > Date.now()) return hit.data;
+
+    const data = await this.buildConversationList(status);
+    listCache.set(key, { data, expires: Date.now() + LIST_TTL_MS });
+    return data;
+  }
+
+  private static async buildConversationList(status?: string) {
     let query = supabaseAdmin
       .from('chat_conversations')
       .select(`
         *,
         user:users!user_id(id, username, email),
-        support_agent:users!support_agent_id(id, username),
-        messages:chat_messages(count)
+        support_agent:users!support_agent_id(id, username)
       `)
       .order('updated_at', { ascending: false });
 
@@ -291,6 +425,11 @@ export class ChatService {
       query = query.in('status', ['Open', 'InProgress']);
     } else if (status) {
       query = query.eq('status', status);
+    }
+
+    // The closed archive only grows; the newest ones are what agents look up.
+    if (status === 'Closed') {
+      query = query.limit(100);
     }
 
     const { data, error } = await query;
@@ -421,6 +560,8 @@ export class ChatService {
       throw new AppError(500, 'Failed to assign conversation');
     }
 
+    accessCache.delete(String(conversationId));
+    invalidateConversationList();
     return data;
   }
 
@@ -440,6 +581,7 @@ export class ChatService {
       throw new AppError(500, 'Failed to close conversation');
     }
 
+    invalidateConversationList();
     return data;
   }
 
@@ -469,10 +611,11 @@ export class ChatService {
       return { id: messageId, already_deleted: true };
     }
 
+    const deletedAt = new Date().toISOString();
     const { error } = await supabaseAdmin
       .from('chat_messages')
       .update({
-        deleted_at: new Date().toISOString(),
+        deleted_at: deletedAt,
         deleted_by: user.id,
         // The original text and any attachment go with it.
         message: '',
@@ -485,10 +628,12 @@ export class ChatService {
       throw new AppError(500, 'Failed to delete message');
     }
 
+    recordWrite(conversationId, { deleted: deletedAt });
     return { id: messageId, deleted: true };
   }
 
-  // Mark messages as read
+  // Mark messages as read. Only rows still unread are touched: rewriting every
+  // message in the thread on each call was a large share of the disk writes.
   static async markAsRead(conversationId: string, user: ChatUser) {
     await assertConversationAccess(conversationId, user);
 
@@ -497,33 +642,25 @@ export class ChatService {
       .from('chat_messages')
       .update({ is_read: true })
       .eq('conversation_id', conversationId)
+      .eq('is_read', false)
       .or(`sender_id.neq.${user.id},sender_id.is.null`);
 
     if (error) {
       throw new AppError(500, 'Failed to mark messages as read');
     }
 
+    // Unread badges in the console come from the shared list.
+    invalidateConversationList();
     return { success: true };
   }
 
-  // Get unread count for user
+  // Get unread count for user: one query, joined through their open conversations.
   static async getUnreadCount(userId: string) {
-    const { data: conversations } = await supabaseAdmin
-      .from('chat_conversations')
-      .select('id')
-      .eq('user_id', userId)
-      .in('status', ['Open', 'InProgress']);
-
-    if (!conversations || conversations.length === 0) {
-      return 0;
-    }
-
-    const conversationIds = conversations.map((c) => c.id);
-
     const { count, error } = await supabaseAdmin
       .from('chat_messages')
-      .select('*', { count: 'exact', head: true })
-      .in('conversation_id', conversationIds)
+      .select('id, chat_conversations!inner(user_id, status)', { count: 'exact', head: true })
+      .eq('chat_conversations.user_id', userId)
+      .in('chat_conversations.status', ['Open', 'InProgress'])
       .neq('sender_id', userId)
       .eq('is_read', false);
 

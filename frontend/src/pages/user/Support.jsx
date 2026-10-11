@@ -5,6 +5,7 @@ import api from '../../utils/api';
 import { Skeleton, SkeletonRegion } from '../../components/ui';
 import ChatMessage from '../../components/ChatMessage';
 import useChatMessages from '../../hooks/useChatMessages';
+import { compressImage, MAX_IMAGE_CHARS } from '../../utils/chatImages';
 import ChatSupportDashboard from '../support/ChatSupportDashboard';
 
 export default function Support() {
@@ -57,20 +58,24 @@ function UserChatInterface() {
     }
   };
 
-  const handleImageSelect = (e) => {
+  // Photos are shrunk before sending (see compressImage), so a large phone
+  // photo is fine; only what is still too big after that is refused.
+  const handleImageSelect = async (e) => {
     const file = e.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      // Check file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Image size must be less than 5MB');
+    if (!file || !file.type.startsWith('image/')) return;
+    setSelectedImage(file);
+    setImagePreview(null);
+    try {
+      const dataUrl = await compressImage(file);
+      if (dataUrl.length > MAX_IMAGE_CHARS) {
+        alert('This image is too large. Please choose a smaller one.');
+        handleRemoveImage();
         return;
       }
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      setImagePreview(dataUrl);
+    } catch {
+      alert('Could not read that image.');
+      handleRemoveImage();
     }
   };
 

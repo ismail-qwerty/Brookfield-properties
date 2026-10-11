@@ -25,3 +25,7 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Real environment files, never committed
+backend/.env.production
+backend/.env.production.ready

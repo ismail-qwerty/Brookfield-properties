@@ -15,7 +15,7 @@ export class AdminController {
 
     const result = await AdminService.getAllUsers(
       Math.max(1, parseInt(page as string) || 1),
-      Math.min(100, Math.max(1, parseInt(limit as string) || 30)),
+      Math.min(100, Math.max(1, parseInt(limit as string) || 10)),
       {
         user_status,
         wallet_status,

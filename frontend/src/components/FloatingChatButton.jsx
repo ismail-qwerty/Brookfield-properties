@@ -5,6 +5,7 @@ import api from '../utils/api';
 import { Skeleton, SkeletonRegion } from './ui';
 import ChatMessage from './ChatMessage';
 import useChatMessages from '../hooks/useChatMessages';
+import { compressImage, MAX_IMAGE_CHARS } from '../utils/chatImages';
 
 // A signed-out visitor (a forgotten password, say) still needs support, so
 // the widget works without an account: the browser keeps a random token that
@@ -78,19 +79,26 @@ export default function FloatingChatButton() {
     return () => window.removeEventListener('open-chat-widget', handler);
   }, []);
 
-  // Poll unread count when widget is closed
+  // Unread badge while the widget is closed. Every signed-in visitor runs
+  // this on every page, so it checks every 30 seconds rather than every few,
+  // skips hidden tabs, and catches up as soon as the tab is visible again.
   useEffect(() => {
-    if (!user || isAdminOrSupport || isHiddenPage) return;
-    const interval = setInterval(async () => {
-      if (!open) {
-        try {
-          const { data } = await api.get('/chat/unread-count');
-          setUnreadCount(data.data || 0);
-        } catch {}
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [user, open, isHiddenPage]);
+    if (!user || isAdminOrSupport || isHiddenPage || open) return;
+    const check = async () => {
+      if (document.hidden) return;
+      try {
+        const { data } = await api.get('/chat/unread-count');
+        setUnreadCount(data.data || 0);
+      } catch { /* the badge is a nicety */ }
+    };
+    check();
+    const interval = setInterval(check, 30000);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [user, open, isHiddenPage, isAdminOrSupport]);
 
   // Load the conversation the first time the widget opens.
   useEffect(() => {
@@ -134,14 +142,25 @@ export default function FloatingChatButton() {
     }
   };
 
-  const handleImageSelect = (e) => {
+  // Photos are shrunk before sending (see compressImage), so a large phone
+  // photo is fine; only what is still too big after that is refused.
+  const handleImageSelect = async (e) => {
     const file = e.target.files[0];
     if (!file || !file.type.startsWith('image/')) return;
-    if (file.size > 5 * 1024 * 1024) { alert('Max 5MB'); return; }
     setSelectedImage(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
+    setImagePreview(null);
+    try {
+      const dataUrl = await compressImage(file);
+      if (dataUrl.length > MAX_IMAGE_CHARS) {
+        alert('This image is too large. Please choose a smaller one.');
+        handleRemoveImage();
+        return;
+      }
+      setImagePreview(dataUrl);
+    } catch {
+      alert('Could not read that image.');
+      handleRemoveImage();
+    }
   };
 
   const handleRemoveImage = () => {
@@ -286,6 +305,7 @@ export default function FloatingChatButton() {
                 mine={isGuest ? !!msg.from_guest : msg.sender_id === user?.id}
                 compact
                 onDelete={isGuest ? undefined : handleDeleteMessage}
+                guestToken={isGuest ? guestToken : null}
               />
             ))
           )}

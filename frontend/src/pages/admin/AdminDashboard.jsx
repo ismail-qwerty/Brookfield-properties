@@ -2,15 +2,23 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { StatusBadge, TierBadge, CurrencyDisplay, EmptyState, Skeleton, SkeletonTableRows, VerifiedBadge } from '../../components/ui';
 import api from '../../utils/api';
+import { getAdminCache, setAdminCache } from '../../utils/adminCache';
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 10;
+const AUTO_REFRESH_MS = 60000;
+
+const usersCacheKey = (page, search) => `users:${page}:${search}`;
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // The last copy of page one shows at once; a fresh one replaces it below.
+  const [initialUsers] = useState(() => getAdminCache(usersCacheKey(1, '')));
+  const [users, setUsers] = useState(() => initialUsers?.users || []);
+  const [loading, setLoading] = useState(() => !initialUsers);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [totalPages, setTotalPages] = useState(() => initialUsers?.totalPages || 1);
   const [showDebitModal, setShowDebitModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [debitAmount, setDebitAmount] = useState('');
@@ -18,7 +26,7 @@ export default function AdminDashboard() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(() => initialUsers?.total || 0);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -31,14 +39,18 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchUsers();
 
-    // Auto-refresh every 30 seconds to show real-time data. Pass
-    // isBackgroundRefresh so this doesn't swap the table back to skeleton
-    // rows every cycle — only the values update.
-    const interval = setInterval(() => {
-      fetchUsers(true);
-    }, 30000);
+    // Keep the numbers current while the page is open, but only while it is
+    // actually on screen: a forgotten background tab costs nothing.
+    const refreshIfVisible = () => {
+      if (!document.hidden) fetchUsers(true);
+    };
+    const interval = setInterval(refreshIfVisible, AUTO_REFRESH_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
   }, [currentPage, debouncedSearch]);
 
   // Close dropdown when clicking outside
@@ -59,7 +71,15 @@ export default function AdminDashboard() {
     };
   }, [openDropdown]);
 
-  const fetchUsers = async (isBackgroundRefresh = false) => {
+  const fetchUsers = async (backgroundRefresh = false) => {
+    // A page seen before shows its cached copy at once and refreshes quietly.
+    const cached = getAdminCache(usersCacheKey(currentPage, debouncedSearch));
+    if (cached && !backgroundRefresh) {
+      setUsers(cached.users);
+      setTotalPages(cached.totalPages);
+      setTotalUsers(cached.total);
+    }
+    const isBackgroundRefresh = backgroundRefresh || !!cached;
     if (!isBackgroundRefresh) setLoading(true);
     try {
       const response = await api.admin.getUsers({
@@ -68,9 +88,16 @@ export default function AdminDashboard() {
         ...(debouncedSearch ? { search: debouncedSearch } : {}),
       });
       const pagination = response.data.data.pagination;
-      setUsers(response.data.data.users || []);
-      setTotalPages(Math.max(1, pagination?.totalPages || 1));
-      setTotalUsers(pagination?.total || 0);
+      const page = {
+        users: response.data.data.users || [],
+        totalPages: Math.max(1, pagination?.totalPages || 1),
+        total: pagination?.total || 0,
+      };
+      setUsers(page.users);
+      setTotalPages(page.totalPages);
+      setTotalUsers(page.total);
+      setLastUpdated(new Date());
+      setAdminCache(usersCacheKey(currentPage, debouncedSearch), page);
     } catch (err) {
       console.error('Failed to fetch users:', err);
     } finally {
@@ -313,12 +340,21 @@ export default function AdminDashboard() {
             <p className="text-gray-600 mt-1">Manage all platform members and accounts</p>
           </div>
           <div className="flex space-x-3">
+            {lastUpdated && (
+              <span className="hidden sm:flex items-center text-xs text-gray-500 tabular-nums">
+                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+            )}
             <button
-              onClick={() => fetchUsers()}
-              disabled={loading}
+              onClick={async () => {
+                setRefreshing(true);
+                await fetchUsers(true);
+                setRefreshing(false);
+              }}
+              disabled={loading || refreshing}
               className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold transition-colors flex items-center space-x-2 disabled:opacity-50"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               <span>Refresh</span>

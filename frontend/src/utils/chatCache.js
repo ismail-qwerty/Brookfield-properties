@@ -36,8 +36,12 @@ export const getCachedMessages = (conversationId) =>
 export const setCachedMessages = (conversationId, messages) => {
   const data = read();
   const threads = data.threads || {};
-  // Drop anything still sending, and keep only the tail of long threads.
-  threads[conversationId] = messages.filter((m) => !m.pending).slice(-MAX_MESSAGES);
+  // Drop anything still sending, keep only the tail of long threads, and
+  // leave photos out: one would fill the browser's storage on its own.
+  threads[conversationId] = messages
+    .filter((m) => !m.pending)
+    .slice(-MAX_MESSAGES)
+    .map((m) => ({ ...m, image_url: undefined }));
 
   const ids = Object.keys(threads);
   if (ids.length > MAX_THREADS) {

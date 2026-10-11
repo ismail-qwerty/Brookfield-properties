@@ -247,9 +247,6 @@ export class AuthService {
   }
 
   static async login(identifier: string, password: string) {
-    console.log('[LOGIN] Attempt for identifier:', identifier);
-    console.log('[LOGIN] Password length:', password?.length);
-
     // Regular accounts sign in with their gmail address; admin/support
     // accounts (which don't have one) keep signing in with their username.
     // Try a username match first, then fall back to an email match so both
@@ -268,46 +265,25 @@ export class AuthService {
         .maybeSingle());
     }
 
-    console.log('[LOGIN] User lookup result:', {
-      found: !!user,
-      error: error?.message,
-      errorDetails: error
-    });
-
+    // Never log the password, its hash or anything derived from them.
     if (error) {
       console.error('[LOGIN] Database error:', error);
       throw new AppError(401, 'Invalid username or password');
     }
 
     if (!user) {
-      console.error('[LOGIN] User not found for identifier:', identifier);
       throw new AppError(401, 'Invalid username or password');
     }
 
-    console.log('[LOGIN] User found:', { 
-      id: user.id, 
-      username: user.username, 
-      status: user.user_status,
-      hasPasswordHash: !!user.password_hash,
-      passwordHashLength: user.password_hash?.length 
-    });
-
     // Check if account is active
     if (user.user_status !== 'Active') {
-      console.log('[LOGIN] Account is not active:', user.user_status);
       throw new AppError(403, 'Your account has been deactivated. Please contact support.');
     }
 
     // Verify password
-    console.log('[LOGIN] Verifying password...');
-    console.log('[LOGIN] Input password:', password.substring(0, 3) + '***');
-    console.log('[LOGIN] Stored hash prefix:', user.password_hash?.substring(0, 10) + '...');
-    
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-    console.log('[LOGIN] Password comparison result:', isPasswordValid);
 
     if (!isPasswordValid) {
-      console.error('[LOGIN] Invalid password for user:', identifier);
       throw new AppError(401, 'Invalid username or password');
     }
 

@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { ENV } from '../config/environment.js';
 import { ResponseUtil } from '../utils/response.js';
 import { Logger } from '../utils/logger.js';
-import { supabaseAdmin } from '../config/database.js';
+import { getCachedUser } from '../utils/userCache.js';
 import { User } from '../types/index.js';
 
 interface JwtPayload {
@@ -56,18 +56,14 @@ const decodeToken = (token: string): JwtPayload | null => {
  */
 const fetchUserById = async (userId: string): Promise<User | null> => {
   try {
-    const { data: user, error } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const user = await getCachedUser(userId);
 
-    if (error || !user) {
-      Logger.error('User fetch failed', { userId, error });
+    if (!user) {
+      Logger.error('User fetch failed', { userId });
       return null;
     }
 
-    return user as User;
+    return user;
   } catch (error) {
     Logger.error('Database error while fetching user', { userId, error });
     return null;
@@ -185,41 +181,10 @@ export const verifyAdmin = async (
       );
     }
 
-    // Double-check admin status in database for critical operations
-    const { data: freshUser, error } = await supabaseAdmin
-      .from('users')
-      .select('user_type, user_status')
-      .eq('id', user.id)
-      .single();
-
-    if (error || !freshUser) {
-      Logger.error('Failed to verify admin status', {
-        userId: user.id,
-        error,
-      });
-      return ResponseUtil.serverError(res, 'Failed to verify admin status');
-    }
-
-    // Verify admin status hasn't changed
-    if (freshUser.user_type !== 'Admin') {
-      Logger.warn('Admin privileges revoked', {
-        userId: user.id,
-        username: user.username,
-      });
-      return ResponseUtil.forbidden(
-        res,
-        'Admin privileges have been revoked. Please contact support.'
-      );
-    }
-
-    // Verify account is still active
-    if (freshUser.user_status !== 'Active') {
-      Logger.warn('Admin account deactivated', {
-        userId: user.id,
-        username: user.username,
-      });
-      return ResponseUtil.forbidden(res, 'Admin account has been deactivated.');
-    }
+    // verifyUser already checked this row is Active. It comes from the user
+    // cache, which AdminService.updateUser clears whenever a role or status
+    // changes, so a demotion still takes effect on the next request without
+    // reading the row a second time here.
 
     Logger.debug('Admin authenticated successfully', {
       userId: user.id,
