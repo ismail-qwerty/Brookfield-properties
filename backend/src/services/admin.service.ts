@@ -63,6 +63,40 @@ export class AdminService {
   }
 
   /**
+   * Reward: all the commission a member has earned from lots, all time. It
+   * never resets. Admin credits and an elite lot's returned price are not
+   * commission, so wallet.total_earned (which includes credits) is not used.
+   * An elite lot left Pending under NEGATIVE_BALANCE_FLAG has already paid
+   * its commission, so it counts too. The API returns at most 1000 rows per
+   * request, so the rows are read a page at a time.
+   */
+  private static async lotRewards(userIds: Array<string | number>) {
+    const totals = new Map<string, number>();
+    if (userIds.length === 0) return totals;
+
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabaseAdmin
+        .from('orders')
+        .select('id, user_id, commission')
+        .in('user_id', userIds)
+        .or(`status.eq.Completed,and(status.eq.Pending,property_name.eq.${NEGATIVE_BALANCE_FLAG})`)
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+
+      if (error) {
+        Logger.error('Failed to add up lot rewards for admin list', { error });
+        break;
+      }
+      for (const o of data || []) {
+        totals.set(String(o.user_id), (totals.get(String(o.user_id)) || 0) + Number(o.commission));
+      }
+      if (!data || data.length < PAGE) break;
+    }
+    return totals;
+  }
+
+  /**
    * Get paginated list of all users with wallet and tier information
    */
   static async getAllUsers(page: number = 1, limit: number = 10, filters?: any) {
@@ -140,65 +174,32 @@ export class AdminService {
         throw new AppError(500, 'Failed to fetch users');
       }
 
-      // "Today" boundary for the per-user today_earnings/orders_today
-      // computed below — same definition UserService.getProfile uses for
-      // the user's own view, so the admin panel and a user's own page
-      // always agree on this number.
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayISO = today.toISOString();
-
-      // Referrer names and today's activity for the whole page come from two
+      // Referrer names and each member's Reward for the whole page come from
       // batched queries, not two per user (which was ~60 queries a refresh).
       const pageUsers = users || [];
       const userIds = pageUsers.map((u) => u.id);
       const referrerIds = [...new Set(pageUsers.map((u) => u.referrer_id).filter(Boolean))];
 
-      const [referrersResult, todayOrdersResult] = await Promise.all([
+      const [referrersResult, rewards] = await Promise.all([
         referrerIds.length
           ? supabaseAdmin.from('users').select('id, username').in('id', referrerIds)
           : Promise.resolve({ data: [] as { id: string; username: string }[], error: null }),
-        // Commission is earned (and already paid into the wallet) the
-        // moment an order is submitted, even if it got left `Pending`
-        // under NEGATIVE_BALANCE_FLAG because it pushed the balance
-        // negative — so those still count as "today's earnings" too,
-        // not just orders that ended up `Completed`.
-        userIds.length
-          ? supabaseAdmin
-              .from('orders')
-              .select('user_id, commission')
-              .in('user_id', userIds)
-              .or(`status.eq.Completed,and(status.eq.Pending,property_name.eq.${NEGATIVE_BALANCE_FLAG})`)
-              .gte('created_at', todayISO)
-          : Promise.resolve({ data: [] as { user_id: string; commission: number }[], error: null }),
+        this.lotRewards(userIds),
       ]);
 
-      if (todayOrdersResult.error) {
-        Logger.error("Failed to fetch today's orders for admin list", { error: todayOrdersResult.error });
-      }
-
       const referrerNames = new Map((referrersResult.data || []).map((r) => [String(r.id), r.username]));
-      const todayByUser = new Map<string, { earnings: number; count: number }>();
-      for (const o of todayOrdersResult.data || []) {
-        const entry = todayByUser.get(String(o.user_id)) || { earnings: 0, count: 0 };
-        entry.earnings += Number(o.commission);
-        entry.count += 1;
-        todayByUser.set(String(o.user_id), entry);
-      }
 
       const usersWithReferrers = pageUsers.map((user) => {
         // Supabase returns relationships as arrays, so extract first element
         const wallet = Array.isArray(user.wallets) ? user.wallets[0] : user.wallets;
         const membership = Array.isArray(user.membership_levels) ? user.membership_levels[0] : user.membership_levels;
-        const today = todayByUser.get(String(user.id));
 
         return {
           ...user,
           referrer_name: user.referrer_id ? referrerNames.get(String(user.referrer_id)) || null : null,
           wallet: wallet || null,
           membership: membership || null,
-          today_earnings: today?.earnings || 0,
-          orders_today: today?.count || 0,
+          lot_reward: rewards.get(String(user.id)) || 0,
         };
       });
 
