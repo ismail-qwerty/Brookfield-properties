@@ -451,7 +451,7 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex justify-between gap-2">
                           <dt className="text-gray-500">Reward</dt>
-                          <dd><CurrencyDisplay amount={user.today_earnings || 0} className="text-black" /></dd>
+                          <dd><CurrencyDisplay amount={user.wallet?.total_earned || 0} className="text-black" /></dd>
                         </div>
                         <div className="flex justify-between gap-2">
                           <dt className="text-gray-500">Orders</dt>
@@ -524,7 +524,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{user.total_orders || 0}</td>
                       <td className="px-4 py-3 text-sm">
-                        <CurrencyDisplay amount={user.today_earnings || 0} className="text-black" />
+                        <CurrencyDisplay amount={user.wallet?.total_earned || 0} className="text-black" />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{user.credibility}%</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{user.referrer_name || '-'}</td>
