@@ -14,7 +14,6 @@ const CARD = {
 
 const PAYOUT_METHODS = [
   { id: 'paypal', label: 'PayPal' },
-  { id: 'card', label: 'Credit / Debit' },
   { id: 'ach', label: 'ACH Bank' },
   { id: 'crypto', label: 'Crypto' },
   { id: 'chime', label: 'Chime' },
@@ -312,7 +311,7 @@ export default function Wallet() {
               <Icon name="chevron" className="w-4 h-4" color="currentColor" />
             </Link>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
             {PAYOUT_METHODS.map((m) => (
               <Link
                 key={m.id}

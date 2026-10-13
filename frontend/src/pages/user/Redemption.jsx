@@ -16,7 +16,6 @@ import {
 
 const PAYOUT_METHODS = [
   { id: 'paypal', label: 'PayPal' },
-  { id: 'card', label: 'Credit / Debit' },
   { id: 'ach', label: 'ACH Bank Transfer' },
   { id: 'crypto', label: 'Cryptocurrency' },
   { id: 'chime', label: 'Chime' },
@@ -28,7 +27,6 @@ const ACCOUNT_TYPES = ['Checking', 'Savings'];
 
 const initialDetails = {
   paypal: { email: '' },
-  card: { name: '', number: '', expiry: '' },
   ach: { holder: '', bankName: '', routing: '', account: '', accountType: 'Checking' },
   crypto: { network: 'BTC', address: '' },
   chime: { handle: '' },
@@ -91,8 +89,6 @@ export default function Redemption() {
     switch (method) {
       case 'paypal':
         return !!d.email.trim();
-      case 'card':
-        return !!d.name.trim() && !!d.number.trim() && !!d.expiry.trim();
       case 'ach':
         return !!d.holder.trim() && !!d.bankName.trim() && !!d.routing.trim() && !!d.account.trim();
       case 'crypto':
@@ -111,8 +107,6 @@ export default function Redemption() {
     switch (method) {
       case 'paypal':
         return `PayPal: ${d.email}`;
-      case 'card':
-        return `Credit/Debit Card: ${d.name}, card ${d.number}, exp ${d.expiry}`;
       case 'ach':
         return `ACH Bank Transfer: ${d.holder}, ${d.bankName}, routing ${d.routing}, account ${d.account} (${d.accountType})`;
       case 'crypto':
@@ -287,47 +281,6 @@ export default function Redemption() {
                   required
                 />
               </div>
-            )}
-
-            {method === 'card' && (
-              <>
-                <div>
-                  <label className={LABEL}>Cardholder Name</label>
-                  <input
-                    type="text"
-                    value={details.card.name}
-                    onChange={(e) => updateDetail('name', e.target.value)}
-                    className={FIELD}
-                    placeholder="Full name on card"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={LABEL}>Card Number</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={details.card.number}
-                    onChange={(e) => updateDetail('number', e.target.value)}
-                    className={FIELD}
-                    placeholder="0000 0000 0000 0000"
-                    maxLength={19}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={LABEL}>Expiry (MM/YY)</label>
-                  <input
-                    type="text"
-                    value={details.card.expiry}
-                    onChange={(e) => updateDetail('expiry', e.target.value)}
-                    className={FIELD}
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    required
-                  />
-                </div>
-              </>
             )}
 
             {method === 'ach' && (
