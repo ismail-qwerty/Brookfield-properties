@@ -295,6 +295,56 @@ export class OrderService {
         throw new AppError(429, `Lot limit reached: ${totalOrders}/${tier.order_limit}.`);
       }
 
+      const specialLotResponse = (
+        orderId: string,
+        property: { id: string; name: string; value: number | string; image_url?: string | null }
+      ) => ({
+        success: true,
+        order: {
+          id: orderId,
+          // Cycle-relative position, not a lifetime order count — must
+          // track total_orders (which "Reset Count" zeroes) so the
+          // number shown to the user actually reflects a reset instead
+          // of continuing to climb from their all-time completed total.
+          display_number: (user.total_orders || 0) + 1,
+          property: {
+            id: property.id,
+            name: property.name,
+            title: property.name,
+            price: Number(property.value),
+            image_url: property.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
+            lot_type: 'special',
+          },
+          commission: (Number(property.value) * Number(tier.special_commission_rate ?? 27)) / 100,
+          property_value: Number(property.value),
+        },
+      });
+
+      // Step 3.4: An elite lot that was already shown stays this member's
+      // next lot until they submit it. Its queue entry is marked delivered
+      // the moment it is shown, so without this, going back or refreshing
+      // and generating again skipped it for good and served a normal lot.
+      // Only the member's newest elite lot is considered: older ones that
+      // were skipped before this fix (often re-assigned duplicates) stay
+      // hidden once a newer elite lot has been shown or submitted.
+      const { data: newestSpecial } = await supabaseAdmin
+        .from('orders')
+        .select('id, status, property_name, properties!inner(id, name, value, image_url, lot_type)')
+        .eq('user_id', userId)
+        .eq('properties.lot_type', 'special')
+        .in('status', ['Pending', 'Completed'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const shown = newestSpecial?.[0];
+      if (shown && shown.status === 'Pending' && !shown.property_name) {
+        const property = Array.isArray(shown.properties) ? shown.properties[0] : shown.properties;
+        if (property) {
+          Logger.info('Serving the special lot already shown to this member', { userId, orderId: shown.id });
+          return specialLotResponse(shown.id, property);
+        }
+      }
+
       // Step 3.5: Check if a special lot should be injected
       const { data: specialLotQueue } = await supabaseAdmin
         .from('user_special_lots_queue')
@@ -341,27 +391,7 @@ export class OrderService {
 
             Logger.info('Special lot injected into order flow', { userId, orderId: newOrder.id });
 
-            return {
-              success: true,
-              order: {
-                id: newOrder.id,
-                // Cycle-relative position, not a lifetime order count — must
-                // track total_orders (which "Reset Count" zeroes) so the
-                // number shown to the user actually reflects a reset instead
-                // of continuing to climb from their all-time completed total.
-                display_number: (user.total_orders || 0) + 1,
-                property: {
-                  id: specialProperty.id,
-                  name: specialProperty.name,
-                  title: specialProperty.name,
-                  price: Number(specialProperty.value),
-                  image_url: specialProperty.image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800',
-                  lot_type: 'special',
-                },
-                commission,
-                property_value: Number(specialProperty.value),
-              },
-            };
+            return specialLotResponse(newOrder.id, specialProperty);
           }
         }
       }
