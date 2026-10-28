@@ -1,0 +1,9 @@
+# Block Google's crawlers from the whole site.
+User-agent: Googlebot
+Disallow: /
+
+User-agent: AdsBot-Google
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
